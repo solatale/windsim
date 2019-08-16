@@ -622,34 +622,12 @@ class CentrlPhot:
         else:
             back_size = 16
 
-
-        # # Fit background using sep.Background
-        # bkg0 = sep.Background(self.data, bw=back_size, bh=back_size, fw=3, fh=3)
-        # if debug == True:
-        #     print('bkg0 rms =', bkg0.globalrms)
-        #     # vmin0 = bkg0.globalback-bkg0.globalrms/2.
-        #     # vmax0 = bkg0.globalback+bkg0.globalrms/2.
-        #     vmin0 = np.min(bkg0.back())
-        #     vmax0 = np.max(bkg0.back())
-        #     # plt.imshow(bkg0.back(), interpolation='nearest', cmap='gray', origin='lower', vmin=vmin0, vmax=vmax0)
-        #     # plt.title('Primary Background')
-        #     # plt.show()
-        #
-        # objimg = self.data - bkg0
-        # obj0, seg0 = sep.extract(objimg, thresh=thresh, err=bkg0.globalrms, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-        # seg0[seg0>0] = 1
-        #
-        # objs = objimg * seg0
-        #
-        # bkgimg = self.data - objs
-        # # self.bkgrms = np.std(bkgimg)
-        # self.bkg = sep.Background(bkgimg, bw=back_size, bh=back_size, fw=3, fh=3)
-
         # Fit background using photutil.Background2D
         sigma_clip = SigmaClip(sigma=3.)
         bkg_estimator = MedianBackground()
-        # bkg_value = bkg_estimator.calc_background()
-        # print(bkg_value)
+        if debug==True:
+            bkg_value = bkg_estimator.calc_background(self.data)
+            print(bkg_value)
         bkg0 = Background2D(self.data, back_size, filter_size=3, sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, edge_method='pad', exclude_percentile=100)
         objimg = self.data - bkg0.background
         obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
@@ -658,36 +636,15 @@ class CentrlPhot:
         bkgimg = self.data - objs
         self.bkg = Background2D(bkgimg, (back_size, back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
 
-
         if debug==True:
             print('bkg rms =', self.bkg.background_rms_median)
-            # print('bkg std =', self.bkgrms)
-            # print(np.mean(self._bkg.rms()))
-            # vmin = self._bkg.globalback - self._bkg.globalrms / 2.
-            # vmax = self._bkg.globalback + self._bkg.globalrms / 2.
             vmin = np.min(bkgimg)
             vmax = np.max(bkgimg)
-            # print(vmin, vmax)
             plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
             plt.title(idb+' Refined Background')
             plt.show()
+
         return self.bkg
-    # @property
-    # def bkg(self):
-    #     """
-    #     Refined background Object.
-    #     :return: Refined background Object.
-    #     """
-    #     return self._bkg
-
-    # @property
-    # def data_bkg(self):
-    #     """
-    #     Convolved window image subtracted refined background.
-    #     :return: In principle returns zero background sources image ndarray.
-    #     """
-    #     return self._data_bkg
-
 
     kphotpar = 2.5
 
@@ -705,7 +662,6 @@ class CentrlPhot:
         :return:
         """
 
-        # bkg = self.Bkg(self, debug=debug, thresh=thresh, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param)
         self.data_bkg = self.data - self.bkg.background
         if debug==True:
             print('Bkg.globalrms =', self.bkg.background_rms_median)
@@ -721,7 +677,7 @@ class CentrlPhot:
             # plot background-subtracted image
             fig, ax = plt.subplots()
             m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
-            im = ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+            ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
             # plot an ellipse for each object
             for objecti in objects:
                 kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 3.0)[0]
@@ -996,21 +952,6 @@ def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, ann
     else:
         back_size = 16
 
-    # Background fitted by sep.Background()
-    # bkg0 = sep.Background(data, bw=back_size, bh=back_size, fw=3, fh=3)
-    # # print('bkg rms: ', bkg0.globalrms)
-    # # plt.imshow(bkg0.back(), interpolation='nearest', cmap='gray', origin='lower')
-    # # plt.show()
-    #
-    # objimg = data - bkg0
-    # obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.globalrms, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-    # seg0[seg0>0] = 1
-    #
-    # objs = objimg * seg0
-    #
-    # bkgimg = data - objs
-    # bkg = sep.Background(bkgimg, bw=back_size, bh=back_size, fw=3, fh=3)
-
     # Background fitted by photutils.Background2D
     sigma_clip = SigmaClip(sigma=3.)
     bkg_estimator = MedianBackground()
@@ -1023,20 +964,14 @@ def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, ann
     bkgimg = data - objs
     bkg = Background2D(bkgimg, (back_size,back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
 
-    if debug==True:
-        print('bkg mean =', bkg.background_median)
-        print('bkg rms =', np.median(bkg.background_rms))
-        # print('bkg mean =', bkg.globalback)
-        # print('bkg rms =', bkg.globalrms)
-        # print(np.mean(bkg.rms()))
-        # # vmin = bkg.globalback - bkg.globalrms / 2.
-        # # vmax = bkg.globalback + bkg.globalrms / 2.
-        # vmin = np.min(bkg.back())
-        # vmax = np.max(bkg.back())
-        # print(vmin, vmax)
-        # plt.imshow(bkg.back(), interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-        # plt.title(id+' Refined Background')
-        # plt.show()
+    # if debug==True:
+    #     print('bkg mean =', bkg.background_median)
+    #     print('bkg rms =', np.median(bkg.background_rms_median))
+    #     vmin = np.min(bkg.background)
+    #     vmax = np.max(bkg.background)
+    #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+    #     plt.title(annot+' Refined Background')
+    #     plt.show()
 
     if np.sum(mask_det)>1:
         data_sub = (data - bkg.background)*mask_det
@@ -1064,13 +999,11 @@ def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, ann
         plt.show()
 
     # kphot_autopar = np.array([kphotpar])
-    # kronr, krflag = sep.kron_radius(data_sub, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], 6.0)
-    # print('Kron Radius: ', kronrad, '(pix)')
     flux, fluxerr, flag = sep.sum_ellipse(data_sub, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], kphotpar * kronr_det, subpix=1) #, mask=mask_det ,maskthresh=0)
     # flux = np.sum(data_sub)
     if flux < 0:
         flux=0
-    # Here, flux is electron counts, not fnu
+    # Here, flux is ADU counts, not fnu
     npix = math.pi*(object_det['a']*kphotpar*kronr_det)*(object_det['b']*kphotpar*kronr_det)
     rsserr = np.sqrt(flux+npix*bkg.background_rms_median**2)
     # rsserr = np.sqrt(flux+npix*bkg.globalrms**2)
@@ -1153,12 +1086,12 @@ def moments(objarr, gaussmod, order=2):
         return xmom2, ymom2, e1, e2, gaussarr
 
 
-def modelgauss(objarr, w, x_0=0, y_0=0):
+def modelgauss(objarr, wx_sig, wy_sig, x_0=0, y_0=0):
     xsize = objarr.shape[1]
     ysize = objarr.shape[0]
     y, x = np.mgrid[:ysize, :xsize]
 
-    gaussini = models.Gaussian2D(amplitude=np.max(objarr)*0.5, x_mean=x_0, y_mean=y_0, x_stddev=w, y_stddev=w)
+    gaussini = models.Gaussian2D(amplitude=np.max(objarr)*0.5, x_mean=x_0, y_mean=y_0, x_stddev=wx_sig, y_stddev=wy_sig)
     gaussini.amplitude.fixed = False
     gaussini.x_stddev.fixed = True
     gaussini.y_stddev.fixed = True
@@ -1399,9 +1332,9 @@ def NeObser(sedarr, cssband, exptime, telarea):
     # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
     thrput = np.loadtxt(thrghdir+cssband+'.txt')
     sedfine = interp(sedarr, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
     obserspec = sedfine
-    obserspec[:,1] = np.multiply(sedfine[:,1], thrfine[:,1])
+    obserspec[:,1] = np.multiply(sedfine[:,1], thrputfine[:,1])
     ToBeInteg = obserspec[:,1]*obserspec[:,0]*(1e-8)  # to be integrated
     Integ = np.trapz(ToBeInteg, x=obserspec[:,0], dx=1.)  # integration per second*cm^2
     Ne_obs = Integ*exptime*telarea/hplk/cvlcm  # total electrons recieved
@@ -1486,23 +1419,23 @@ def windcut(cssimg, cataline):
     absizes = tuple(cataline['a_image_css', 'b_image_css'])
     # cutwidrad = int((a*math.cos(theta/180.*math.pi)+b*abs(math.sin(theta/180.*math.pi)))*5)
     # cutheirad = int((a*abs(math.sin(theta/180.*math.pi))+b*math.cos(theta/180.*math.pi))*5)
-    cutwidrad = int(max(absizes) *10)
-    cutheirad = cutwidrad
+    cutwid = int(max(absizes)*20)+1
+    cuthei = cutwid
 
-    if min(cutwidrad, cutheirad) < 16:
+    if min(cutwid, cuthei) < 16:
     # size too small
         return None
 
-    objwind0 = Cutout2D(cssimg, xyposits, (cutheirad, cutwidrad), mode='trim')
+    objwind0 = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='trim')
     # objwind0.data = objwind0.data.copy(order='C')
     objwind0.data = objwind0.data.byteswap().newbyteorder()
     windback = sep.Background(objwind0.data, bw=16, bh=16)
-    objwind = Cutout2D(cssimg, xyposits, (cutheirad, cutwidrad), mode='partial', fill_value=windback.globalback)
+    objwind = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='partial', fill_value=windback.globalback)
 
     return objwind
 
 
-def PlotOjbWin(objwind, catline):
+def PlotObjWin(objwind, catline):
     # Plot each object's image
     objwinshape = objwind.shape
     x = np.linspace(0, objwinshape[1] - 1, objwinshape[1])
@@ -1532,8 +1465,8 @@ def PlotOjbWin(objwind, catline):
 
 
 def PlotKronrs(image, SourceObj):
-    print('KronRStack:', SourceObj.kronr)
-    print('ADU STACK =', AduStack, 'e-')
+    print('KronR =', SourceObj.kronr)
+    print('ADU =', SourceObj.centflux, 'e-')
     fig, ax = plt.subplots()
     ax.imshow(image, interpolation='nearest', cmap='gray', origin='lower')
     # plot an ellipse for each object

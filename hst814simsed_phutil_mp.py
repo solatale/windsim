@@ -63,7 +63,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         WinImgBands = np.zeros((len(cssbands), objwinshape[0], objwinshape[1]))  # 3-D array contains images of all the cssbands
 
         if IfPlotObjWin == True:
-            csstpkg.PlotOjbWin(objwind, cataline)
+            csstpkg.PlotObjWin(objwind, cataline)
 
         outcatrowi = [ident, cataline['Z_BEST']]
 
@@ -83,16 +83,8 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
 
         if DebugTF == True:
-            # print('data-bkg_masked array:', ObjWinPhot.data_bkg_masked)
             print('self.bkg Flux & ErrFlux =', ObjWinPhot.bkg.background_median, ObjWinPhot.bkg.background_rms_median)
-            # print('bkgrms:', ObjWinPhot.bkgrms)
-            # print('Object Central:', ObjWinPhot.centobj)
-            # print('data-bkg array:', ObjWinPhot.data_bkg)
             print('Class processed Neconv & ErrNeConv:', NeConv, ErrNeConv)
-
-        # NeConv, ErrNeConv, ObjectConv, KronRConv, MaskConv = septract(objwind, id=str(outcatrowi[0])+" ConvWdW", debug=DebugTF, thresh=2, minarea=10)
-        # if DebugTF == True:
-        #     print(' '.join(["Stamp's central obj electrons = ", str(NeConv), 'e-/s']))
 
         if ((NeConv <= 0) or (NeConv is np.nan)):
             if DebugTF == True:
@@ -170,10 +162,11 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             if DebugTF == True:
                 print(cssband, ' band Array Slice Sum =', np.sum(WinImgBands[bandi, ::]), 'e-')
                 print(cssband, ' band Array Slice MagAB =', csstpkg.Ne2MagAB(np.sum(WinImgBands[bandi, ::]), cssband, expcss, TelArea))
-            AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband, thresh=1.2, minarea=10)
-            # AduObser, ErrAduObs = septract(WinImgBands[bandi,::], ident+' septract', debug=DebugTF)[0:2]
+            AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10)
+
             if DebugTF == True:
                 print(''.join([cssband, ' band simu ADU=', str(AduObser), ' ErrNe=', str(ErrAduObs)]))
+
             if AduObser > 0:
                 SNR = AduObser / ErrAduObs
                 # MagObser = Ne2MagAB(AduObser*Gain,cssband,expcss,TelArea)
@@ -333,7 +326,7 @@ if __name__ == '__main__':
     CssCatTileNm = config['Hst2Css']['CssCatTile']
     ascii.write(CatOfTile, CssCatTileNm.replace(CssCatTileNm[-7:-4], str(sys.argv[1])), format='commented_header', comment='#', overwrite=True)
 
-    for scheme_i in [0]: #range(3):
+    for scheme_i in range(3):
 
         if scheme_i == 0:
             cssbands = ['Nuv', 'u', 'g', 'r', 'i', 'z', 'y']
