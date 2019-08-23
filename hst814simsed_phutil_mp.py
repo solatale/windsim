@@ -77,7 +77,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         if ObjWinPhot.centobj is np.nan:
             continue
         else:
-            ObjWinPhot.KronR(idk=str(outcatrowi[0]) + " ConvWdW", debug=DebugTF)
+            ObjWinPhot.KronR(idk=str(outcatrowi[0]) + " ConvWdW", debug=DebugTF, mask_bool=True)
 
         NeConv, ErrNeConv = ObjWinPhot.EllPhot(ObjWinPhot.kronr, mask_bool=True)
 
@@ -125,7 +125,6 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
             NoisNorm = csstpkg.NoiseArr(objwinshape, loc=0, scale=config.getfloat('Hst2Css', 'RNCss') * (numb) ** 0.5, func='normal')
 
-            # DigitizeImg = ImgPoiss + NoisNorm + ZeroLevel
             DigitizeImg = np.floor((ImgPoiss + NoisNorm + ZeroLevel) / Gain)
 
             WinImgBands[bandi, ::] = DigitizeImg
@@ -139,14 +138,14 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         # print(WinImgStack.shape)
         # AduStack, ErrAduStack, ObjectStack, KronRStack, MaskStack = septract(WinImgStack, id=str(outcatrowi[0])+" Stack", debug=DebugTF, thresh=1.2, minarea=10)
         StackPhot = csstpkg.CentrlPhot(WinImgStack, id=str(outcatrowi[0]) + " Stack")
-        StackPhot.Bkg(idb=str(outcatrowi[0]) + " Stack", debug=DebugTF, thresh=1.2, minarea=10)
-        StackPhot.Centract(idt=str(outcatrowi[0]) + " Stack", thresh=1.2, minarea=10, deblend_nthresh=24, deblend_cont=0.1)
+        StackPhot.Bkg(idb=str(outcatrowi[0]) + " Stack", debug=DebugTF, thresh=1.5, minarea=10)
+        StackPhot.Centract(idt=str(outcatrowi[0]) + " Stack", thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.1, debug=DebugTF)
         if StackPhot.centobj is np.nan:
             if DebugTF == True:
                 print('No central object on STACK image.')
             continue
         else:
-            StackPhot.KronR(idk=str(outcatrowi[0]) + " Stack", debug=DebugTF)
+            StackPhot.KronR(idk=str(outcatrowi[0]) + " Stack", debug=DebugTF, mask_bool=True)
         AduStack, ErrAduStack = StackPhot.EllPhot(StackPhot.kronr, mask_bool=True)
         if AduStack is np.nan:
             if DebugTF == True:
@@ -184,7 +183,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 print(' '.join([cssband, 'band mag_simul = ', str(MagObser), '(AB mag)']))
                 print(' '.join([cssband, 'band mag_model = ', str(cataline['MOD_' + cssband + '_css']), '(AB mag)']))
 
-            outcatrowi = outcatrowi + [MagObser,ErrMagObs,SNR]
+            outcatrowi = outcatrowi + [cataline['MOD_' + cssband + '_css'], MagObser, ErrMagObs, SNR]
             bandi = bandi + 1
 
         del WinImgBands
@@ -326,7 +325,7 @@ if __name__ == '__main__':
     CssCatTileNm = config['Hst2Css']['CssCatTile']
     ascii.write(CatOfTile, CssCatTileNm.replace(CssCatTileNm[-7:-4], str(sys.argv[1])), format='commented_header', comment='#', overwrite=True)
 
-    for scheme_i in range(3):
+    for scheme_i in range(1):
 
         if scheme_i == 0:
             cssbands = ['Nuv', 'u', 'g', 'r', 'i', 'z', 'y']
@@ -343,6 +342,7 @@ if __name__ == '__main__':
             filtnumb = [4, 2, 2, 2, 6, 2]
             schemecode = '4262'
 
+        print('Scheme '+schemecode)
         # cssbands = config.get('Hst2Css', 'CssBands').split(',')
         # filtnumb_str = config.get('Hst2Css', 'FiltNumb').split(',')
         # filtnumb = [int(numb) for numb in filtnumb_str]
@@ -352,9 +352,9 @@ if __name__ == '__main__':
             expcss = 150. * numb  # s
             magab_zeros.append(csstpkg.MagAB_Zero(Gain,cssband, expcss, TelArea))
 
-        namelists = map(lambda mag, magerr, snr, aband: \
-                            [mag+aband, magerr+aband, snr+aband], \
-                        ['Magsim_'] * len(cssbands), ['ErrMag_'] * len(cssbands), ['SNR_'] * len(cssbands), cssbands)
+        namelists = map(lambda modmag, magsim, magerr, snr, aband: \
+                            [modmag+aband, magsim+aband, magerr+aband, snr+aband], \
+                        ['MOD_']*len(cssbands), ['MagSim_'] * len(cssbands), ['ErrMag_'] * len(cssbands), ['SNR_'] * len(cssbands), cssbands)
         colnames = ['ID','Z_BEST']+list(itertools.chain(*namelists))
 
         LenCatTile = len(CatOfTile)

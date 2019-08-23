@@ -38,6 +38,6 @@ for i,catline in enumerate(lephcat):
             sign = 0
         catline['Context'] = catline['Context']+2**j*sign
 
-ascii.write(lephcat,sys.argv[1].split('.')[0]+'_'+schemecode+'_toLephare.txt',format='commented_header', comment='#', overwrite=True)
+ascii.write(lephcat,sys.argv[1].split('.')[0]+'_toLephare.txt',format='commented_header', comment='#', overwrite=True)
 
-print('Finished.')
+print('Lephare Input Catalog Finished.')
