@@ -636,13 +636,13 @@ class CentrlPhot:
         bkgimg = self.data - objs
         self.bkg = Background2D(bkgimg, (back_size, back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
 
-        if debug==True:
-            print('bkg rms =', self.bkg.background_rms_median)
-            vmin = np.min(bkgimg)
-            vmax = np.max(bkgimg)
-            plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-            plt.title(idb+' Refined Background')
-            plt.show()
+        # if debug==True:
+        #     print('bkg rms =', self.bkg.background_rms_median)
+        #     vmin = np.min(bkgimg)
+        #     vmax = np.max(bkgimg)
+        #     plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        #     plt.title(idb+' Refined Background')
+        #     plt.show()
 
         return self.bkg
 
@@ -680,7 +680,7 @@ class CentrlPhot:
             ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
             # plot an ellipse for each object
             for objecti in objects:
-                kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 3.0)[0]
+                kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
                 e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*CentrlPhot.kphotpar*2, height=objecti['b']*kronrdets*CentrlPhot.kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
                 e.set_facecolor('none')
                 e.set_edgecolor('red')
@@ -690,33 +690,48 @@ class CentrlPhot:
 
 
         # print(len(objects))
-        if len(objects)>1:
+        if len(objects)>=1:
             objxy = np.array([objects['y'], objects['x']]).transpose()
             # print(objxy)
-            tocenter = np.abs(objxy-np.array(self.data_bkg.shape)/2.+1)
-            idx = np.argmin(tocenter[:,0]**2+tocenter[:,1]**2)
-            # idx = np.argmin(tocenter[:,0]*tocenter[:,1])
-            self.centobj=objects[idx]
-            # if ((abs(self.centobj['x'] - self.data_bkg.shape[1] / 2. + 1) > 4) & (abs(self.centobj['y'] - self.data_bkg.shape[0] / 2. + 1) > 4)):
-            if (((self.centobj['x']-((self.data_bkg.shape[1]-1)/2.+1))**2+(self.centobj['y']-((self.data_bkg.shape[0]-1)/2.+1))**2)**0.5 > 4):
-                if debug == True:
-                    print('multiple objects all deviate center')
-                    self.centobj = np.nan
-            # print('An object extracted')
-        elif len(objects)==1:
-            self.centobj = objects[0]
-            # print(abs(self.centobj['x']-self.data_bkg.shape[1]/2.+1))
-            # print(abs(self.centobj['y']-self.data_bkg.shape[0]/2.+1))
-            # if ((abs(self.centobj['x']-self.data_bkg.shape[1]/2.+1)>4) & (abs(self.centobj['y']-self.data_bkg.shape[0]/2.+1)>4)):
-            if (((self.centobj['x']-((self.data_bkg.shape[1]-1)/2.+1))**2+(self.centobj['y']-((self.data_bkg.shape[0]-1)/2.+1))**2)**0.5 > 4):
-                if debug == True:
-                    print('single object deviates center')
+            tocenter = np.abs(objxy-(np.array(self.data_bkg.shape)/2.+0.5))
+            distances = (tocenter[:,0]**2+tocenter[:,1]**2)**0.5
+            if debug == True:
+                print('Distances to center:\n',distances)
+            if np.min(distances) > 4:
                 self.centobj = np.nan
-            # print('An object extracted')
+                if debug == True:
+                    print('objects all deviate center')
+            else:
+                idx = np.argmin(distances)
+                self.centobj=objects[idx]
         else:
             if debug == True:
                 print('no object detected')
             self.centobj = np.nan
+
+        #     idx = np.argmin(tocenter[:,0]**2+tocenter[:,1]**2)
+        #     # idx = np.argmin(tocenter[:,0]*tocenter[:,1])
+        #     self.centobj=objects[idx]
+        #     # if ((abs(self.centobj['x'] - self.data_bkg.shape[1] / 2. + 1) > 4) & (abs(self.centobj['y'] - self.data_bkg.shape[0] / 2. + 1) > 4)):
+        #     if (((self.centobj['x']-(self.data_bkg.shape[1]/2.+0.5))**2+(self.centobj['y']-(self.data_bkg.shape[0]/2.+0.5))**2)**0.5 > 4):
+        #         if debug == True:
+        #             print('multiple objects all deviate center')
+        #             self.centobj = np.nan
+        #     # print('An object extracted')
+        # elif len(objects)==1:
+        #     self.centobj = objects[0]
+        #     # print(abs(self.centobj['x']-self.data_bkg.shape[1]/2.+1))
+        #     # print(abs(self.centobj['y']-self.data_bkg.shape[0]/2.+1))
+        #     # if ((abs(self.centobj['x']-self.data_bkg.shape[1]/2.+1)>4) & (abs(self.centobj['y']-self.data_bkg.shape[0]/2.+1)>4)):
+        #     if (((self.centobj['x']-((self.data_bkg.shape[1]-1)/2.+1))**2+(self.centobj['y']-((self.data_bkg.shape[0]-1)/2.+1))**2)**0.5 > 4):
+        #         if debug == True:
+        #             print('single object deviates center')
+        #         self.centobj = np.nan
+        #     # print('An object extracted')
+        # else:
+        #     if debug == True:
+        #         print('no object detected')
+        #     self.centobj = np.nan
 
         if self.centobj is not np.nan:
             censeg = segarr[int(self.centobj['y']),int(self.centobj['x'])]
@@ -727,7 +742,8 @@ class CentrlPhot:
 
             self.mask_other = copy.deepcopy(segarr)
             # convert mask_other, setting central object and background with 1, other with 0
-            self.mask_other[(self.mask_other==0) | (self.mask_other==censeg)] = np.max(segarr)+1
+            self.mask_other[self.mask_other==0] = np.max(segarr)+1
+            self.mask_other[self.mask_other==censeg] = np.max(segarr)+1
             # self.mask_other[self.mask_other==0] = max(segarr)+1
             # self.mask_other[self.mask_other==censeg] = max(segarr)+1
             self.mask_other[self.mask_other<=np.max(segarr)] = 0
@@ -743,9 +759,9 @@ class CentrlPhot:
 
     def KronR(self, idk='NA', debug=False, mask_bool=False):
 
-        if mask_bool == False:
+        if mask_bool is False:
             data = self.data_bkg
-        elif mask_bool == True:
+        elif mask_bool is True:
             data = self.data_bkg_masked
         else:
             print("'mask_bool' type error:\nmask_bool parameter is boolean.")
@@ -795,148 +811,6 @@ class CentrlPhot:
 
         return self.centflux, self.rsserr
 
-
-
-
-
-def septract(dataorig, id='NA', debug=False, thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
-    # extract objects using "sep" program.
-
-    data = np.array(dataorig, dtype='float32')  #.byteswap().newbyteorder()
-    datahei, datawid = data.shape
-
-    if max(datahei,datawid) > 32*2:
-        back_size = 32
-    else:
-        back_size = 16
-    bkg0 = sep.Background(data, bw=back_size, bh=back_size, fw=3, fh=3)
-    if debug==True:
-        print('bkg0 rms =', bkg0.globalrms)
-        # vmin0 = bkg0.globalback-bkg0.globalrms/2.
-        # vmax0 = bkg0.globalback+bkg0.globalrms/2.
-        vmin0 = np.min(bkg0.back())
-        vmax0 = np.max(bkg0.back())
-        # plt.imshow(bkg0.back(), interpolation='nearest', cmap='gray', origin='lower', vmin=vmin0, vmax=vmax0)
-        # plt.title('Primary Background')
-        # plt.show()
-
-    objimg = data - bkg0
-    obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.globalrms, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-    seg0[seg0>0] = 1
-
-    objs = objimg * seg0
-
-    bkgimg = data - objs
-    bkg = sep.Background(bkgimg, bw=back_size, bh=back_size, fw=3, fh=3)
-    if debug==True:
-        print('bkg rms =', bkg.globalrms)
-        # print(np.mean(bkg.rms()))
-        # vmin = bkg.globalback - bkg.globalrms / 2.
-        # vmax = bkg.globalback + bkg.globalrms / 2.
-        vmin = np.min(bkg.back())
-        vmax = np.max(bkg.back())
-        # print(vmin, vmax)
-        # plt.imshow(bkg.back(), interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-        # plt.title(id+' Refined Background')
-        # plt.show()
-
-    data_bkg = data - bkg
-    objects, segarr = sep.extract(data_bkg, thresh, err=bkg.globalrms, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-
-    kphotpar = 2.5
-
-    if debug == True:
-        # plot background-subtracted image
-        fig, ax = plt.subplots()
-        m, s = np.mean(data_bkg), np.std(data_bkg)
-        im = ax.imshow(data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 3*s, origin='lower')
-        # plot an ellipse for each object
-        for objecti in objects:
-            kronrdets= sep.kron_radius(data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
-            e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
-            e.set_facecolor('none')
-            e.set_edgecolor('red')
-            ax.add_artist(e)
-        plt.title(str(id)+"'s detected objects")
-        plt.show()
-
-
-    # print(len(objects))
-    if len(objects)>1:
-        objxy = np.array([objects['y'], objects['x']]).transpose()
-        # print(objxy)
-        tocenter = np.abs(objxy-np.array(data_bkg.shape)/2.+1)
-        idx = np.argmin(tocenter[:,0]**2+tocenter[:,1]**2)
-        # idx = np.argmin(tocenter[:,0]*tocenter[:,1])
-        objecti=objects[idx]
-        # if ((abs(objecti['x'] - data_bkg.shape[1] / 2. + 1) > 4) & (abs(objecti['y'] - data_bkg.shape[0] / 2. + 1) > 4)):
-        if (((objecti['x']-((data_bkg.shape[1]-1)/2.+1))**2+(objecti['y']-((data_bkg.shape[0]-1)/2.+1))**2)**0.5 > 4):
-            if debug == True:
-                print('multiple objects all deviate center')
-            return np.nan, np.nan, np.nan, np.nan, np.nan
-        # print('An object extracted')
-    elif len(objects)==1:
-        objecti = objects[0]
-        # print(abs(objecti['x']-data_bkg.shape[1]/2.+1))
-        # print(abs(objecti['y']-data_bkg.shape[0]/2.+1))
-        # if ((abs(objecti['x']-data_bkg.shape[1]/2.+1)>4) & (abs(objecti['y']-data_bkg.shape[0]/2.+1)>4)):
-        if (((objecti['x']-((data_bkg.shape[1]-1)/2.+1))**2+(objecti['y']-((data_bkg.shape[0]-1)/2.+1))**2)**0.5 > 4):
-            if debug == True:
-                print('single object deviates center')
-            return np.nan, np.nan, np.nan, np.nan, np.nan
-        # print('An object extracted')
-    else:
-        if debug == True:
-            print('no object detected')
-        return np.nan, np.nan, np.nan, np.nan, np.nan
-
-    censeg = segarr[int(objecti['y']),int(objecti['x'])]
-    mask_centr = segarr
-    mask_centr[segarr==0]=np.max(segarr)+1
-    mask_centr[segarr==censeg]=0
-
-    # flip mask_centr and set central object with 1, other with 0
-    mask_centr[mask_centr>0] = np.max(mask_centr)+2
-    mask_centr[mask_centr==0] = 1
-    mask_centr[mask_centr>1] = 0
-    data_bkgmask = data_bkg*mask_centr
-
-    if debug==True:
-        plt.imshow(mask_centr, interpolation='nearest', cmap='gray', origin='lower')
-        plt.title(id+"'s Mask")
-        plt.show()
-
-    kronri, krflag = sep.kron_radius(data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0) #, mask=mask_centr,maskthresh=0)
-    if debug==True:
-        print('a b kronri:', objecti['a'], objecti['b'], kronri)
-        # print(' '.join(['Kron Radius: ', str(kronri), '(pix)']))
-
-        # Plot Cleaned object
-        fig, ax = plt.subplots()
-        m, s = np.mean(data_bkgmask), np.std(data_bkgmask)
-        im = ax.imshow(data_bkgmask, interpolation='nearest', cmap='gray', origin='lower')
-        # plot an ellipse for each object
-        e = Ellipse(xy=(objecti['x'], objecti['y']), width=kphotpar*kronri*objecti['a']*2, height=kphotpar*kronri*objecti['b']*2, angle=objecti['theta'] * 180. / np.pi)
-        e.set_facecolor('none')
-        e.set_edgecolor('blue')
-        ax.add_artist(e)
-        plt.title(id+"'s central object & aperture photometry")
-        plt.show()
-
-
-    flux, fluxerr, flag = sep.sum_ellipse(data_bkgmask, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], kphotpar * kronri, subpix=1) #, mask=mask_centr,maskthresh=0.0)
-    # Here, flux is electron counts, not fnu
-    if flux < 0:
-        flux = 0
-    npix = math.pi*(objecti['a']*kphotpar*kronri)*(objecti['b']*kphotpar*kronri)
-    rsserr = np.sqrt(flux+npix*bkg.globalrms**2)
-    # print('Flux:',flux,'RSSErr:', rsserr)
-    if rsserr == 0:
-        if debug == True:
-            print('rmserr equals to 0')
-        return np.nan, np.nan, np.nan, np.nan, np.nan
-    else:
-        return flux, rsserr, objecti, kronri, mask_centr
 
 
 def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
@@ -1007,8 +881,9 @@ def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, ann
     npix = math.pi*(object_det['a']*kphotpar*kronr_det)*(object_det['b']*kphotpar*kronr_det)
     rsserr = np.sqrt(flux+npix*bkg.background_rms_median**2)
     # rsserr = np.sqrt(flux+npix*bkg.globalrms**2)
-    # if debug == True:
-    #     print(annot,'Flux:',flux,'FluxErr:', rsserr)
+    if debug == True:
+        # print(annot,'Flux:',flux,'FluxErr:', rsserr)
+        print(annot, 'bkg rms:', bkg.background_rms_median)
     if rsserr == 0:
         return np.nan, np.nan
     else:
@@ -1359,7 +1234,7 @@ def Ne2MagAB(NeDet, cssband, exptime, telarea):
 
 def MagAB_Zero(Gain, cssband, exptime, telarea):
     """
-    calculate AB magnitude from detected electron number, assuming f_nu is constantly.
+    calculate AB magnitude zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
     thrarr is not necessory to be sampled evenly.
     throughput array is in T_lambda(/A).
     """
@@ -1477,3 +1352,60 @@ def PlotKronrs(image, SourceObj):
     ax.add_artist(e)
     plt.title(SourceObj.id+' Mask')
     plt.show()
+
+def sed2magab_energy_zero(cssband):
+    """
+    calculate AB magnitude zero point with a throughput curve corresponds to energy, assuming f_nu is constantly as 1.
+    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
+    mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+    thrarr is not necessory to be sampled evenly.
+    throughput array is in T_lambda(/A).
+    """
+    # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
+    thrput = np.loadtxt(thrghdir + cssband + '.txt')
+    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = thrfine[:, 1] / (thrfine[:, 0] ** 2)  # to be integrated
+    Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+    area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
+    magab0 = 2.5 * math.log10(area) - 48.6
+    return magab0
+
+def sed2magab_energy(modsed, cssband, magzero):
+    magzb0 = MagAB_Ener_Zero(cssband)
+    thrput = np.loadtxt(thrghdir + cssband + '.txt')
+    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    sedfine = interp(modsed, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = sedfine[:, 1] * thrfine[:, 1]
+    flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+    magab = -2.5 * math.log10(flux) + magzero
+    return magab
+
+def sed2magab_photon_zero(cssband):
+    """
+    calculate AB magnitude zero point with a throughput curve corresponds to number of photons, assuming f_nu is constantly as 1.
+    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
+    mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+    thrarr is not necessory to be sampled evenly.
+    throughput array is in T_lambda(/A).
+    """
+    # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
+    thrput = np.loadtxt(thrghdir + cssband + '.txt')
+    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = thrfine[:, 1] / thrfine[:, 0]  # to be integrated
+    Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+    area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
+    magab0 = 2.5 * math.log10(area) - 48.6
+
+    return magab0
+
+def sed2magab_photon(modsed, cssband, magzero):
+    magzb0 = MagAB_Ener_Zero(cssband)
+    thrput = np.loadtxt(thrghdir + cssband + '.txt')
+    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    sedfine = interp(modsed, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = sedfine[:, 1] * thrfine[:, 1] * thrfine[:, 0]
+    flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+    magab = -2.5 * math.log10(flux) + magzero
+    return magab

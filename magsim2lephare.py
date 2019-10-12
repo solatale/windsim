@@ -23,20 +23,29 @@ else:
 simcat = ascii.read(simcatname)
 simcat['Context'] = 0
 
-namelists = map(lambda mag, err, aband:[mag+aband, err+aband],
-                ['Magsim_']*len(cssbands), ['ErrMag_'] * len(cssbands), cssbands)
+namelists = map(lambda mag, err, aband:[mag+aband, err+aband], ['MagSim_']*len(cssbands), ['ErrMag_'] * len(cssbands), cssbands)
 
 namelists = ['ID']+list(itertools.chain(*namelists))+['Context', 'Z_BEST']
 
-lephcat = simcat[namelists]
+snrthr = 3
 
-for i,catline in enumerate(lephcat):
+for i,catline in enumerate(simcat):
+    nbands = 0
     for j,cssband in enumerate(cssbands):
-        if catline['Magsim_'+cssband] >= 0:
+        if ((catline['MagSim_'+cssband]>=0) and (simcat[i]['SNR_'+cssband]>=snrthr)):
             sign = 1
+            nbands = nbands + 1
         else:
             sign = 0
         catline['Context'] = catline['Context']+2**j*sign
+    if nbands<=3:
+        catline['Context'] = -99
+        # for j,cssband in enumerate(cssbands):
+        #     if simcat[i]['SNR_'+cssband]<=snrthr:
+                # catline['MagSim_'+cssband] = -99
+                # catline['ErrMag_'+cssband] = -99
+
+lephcat = simcat[namelists]
 
 ascii.write(lephcat,sys.argv[1].split('.')[0]+'_toLephare.txt',format='commented_header', comment='#', overwrite=True)
 

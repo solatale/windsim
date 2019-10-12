@@ -115,19 +115,22 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 print(ident, Scl2Sed)
 
             ZeroLevel = config.getfloat('Hst2Css', 'BZero')
-            skylevel = csstpkg.backsky[cssband] * expcss
-            DarkImg = config.getfloat('Hst2Css', 'BDark') * expcss
-            IdealImg = objwind.data * Scl2Sed + skylevel + DarkImg  # e-
+            SkyLevel = csstpkg.backsky[cssband] * expcss
+            DarkLevel = config.getfloat('Hst2Css', 'BDark') * expcss
+            IdealImg = objwind.data * Scl2Sed + SkyLevel + DarkLevel  # e-
             IdealImg[IdealImg < 0] = 0
-            if DebugTF == True:
-                print(cssband, ' band Sum of IdealImg =', np.sum(IdealImg))
-            ImgPoiss = np.random.poisson(lam=IdealImg, size=objwinshape)
-
+            csstpkg.DataArr2Fits((IdealImg+ZeroLevel)/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
+            # if DebugTF == True:
+            #     print(cssband, ' band Sum of IdealImg =', np.sum(IdealImg))
+            # ImgPoiss = np.random.poisson(lam=IdealImg, size=objwinshape)
+            #
+            ImgPoiss = IdealImg
             NoisNorm = csstpkg.NoiseArr(objwinshape, loc=0, scale=config.getfloat('Hst2Css', 'RNCss') * (numb) ** 0.5, func='normal')
+            DigitizeImg = (ImgPoiss + NoisNorm + ZeroLevel) / Gain
+            # DigitizeImg = (IdealImg + ZeroLevel)/Gain
+            csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
 
-            # DigitizeImg = np.floor((ImgPoiss + NoisNorm + ZeroLevel) / Gain)
-            # WinImgBands[bandi, ::] = DigitizeImg
-            WinImgBands[bandi, ::] = IdealImg/Gain
+            WinImgBands[bandi, ::] = DigitizeImg
 
             bandi = bandi + 1
 
@@ -158,9 +161,9 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         bandi = 0
         for cssband, numb in zip(cssbands, filtnumb):
             expcss = 150. * numb  # s
-            if DebugTF == True:
-                print(cssband, ' band Array Slice Sum =', np.sum(WinImgBands[bandi, ::]), 'e-')
-                print(cssband, ' band Array Slice MagAB =', csstpkg.Ne2MagAB(np.sum(WinImgBands[bandi, ::]), cssband, expcss, TelArea))
+            # if DebugTF == True:
+            #     print(cssband, ' band Array Slice Sum =', np.sum(WinImgBands[bandi, ::]), 'e-')
+            #     print(cssband, ' band Array Slice MagAB =', csstpkg.Ne2MagAB(np.sum(WinImgBands[bandi, ::]), cssband, expcss, TelArea))
             AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10)
 
             if DebugTF == True:
@@ -180,10 +183,11 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 MagObser = -99
                 ErrMagObs = -99
             if DebugTF == True:
-                print(' '.join([cssband, 'band mag_simul = ', str(MagObser), '(AB mag)']))
                 print(' '.join([cssband, 'band mag_model = ', str(cataline['MOD_' + cssband + '_css']), '(AB mag)']))
+                print(' '.join([cssband, 'band mag_simul = ', str(MagObser), '(AB mag)']))
+                print(' '.join([cssband, 'band magerr_simul = ', str(ErrMagObs), '(AB mag)']))
 
-            outcatrowi = outcatrowi + [MagObser,ErrMagObs,SNR]
+            outcatrowi = outcatrowi + [cataline['MOD_' + cssband + '_css'], MagObser, ErrMagObs, SNR]
             bandi = bandi + 1
 
         del WinImgBands
@@ -259,6 +263,12 @@ if __name__ == '__main__':
         HstFileName = HstFileName.replace(HstFileName[-12:-9], sys.argv[1])
         HstAsCssFile = HstAsCssFile.replace(HstAsCssFile[-8:-5], sys.argv[1])
         HstAsCssFileTest = HstAsCssFileTest.replace(HstAsCssFileTest[-8:-5], sys.argv[1])
+
+    if DebugTF == False:
+        if os.system('ls *[0-9]_convwin_r.fits'):
+            os.system('rm *[0-9]_convwin_r.fits')
+        if os.system('ls *[0-9]_stack.fits'):
+            os.system('rm *[0-9]_stack.fits')
 
     IfDoConv = config.getboolean('Hst2Css','IfDoConv')
     if IfDoConv==True:
@@ -352,15 +362,15 @@ if __name__ == '__main__':
             expcss = 150. * numb  # s
             magab_zeros.append(csstpkg.MagAB_Zero(Gain,cssband, expcss, TelArea))
 
-        namelists = map(lambda mag, magerr, snr, aband: \
-                            [mag+aband, magerr+aband, snr+aband], \
-                        ['Magsim_'] * len(cssbands), ['ErrMag_'] * len(cssbands), ['SNR_'] * len(cssbands), cssbands)
+        namelists = map(lambda modmag, magsim, magerr, snr, aband: \
+                            [modmag+aband, magsim+aband, magerr+aband, snr+aband], \
+                        ['MOD_']*len(cssbands), ['MagSim_'] * len(cssbands), ['ErrMag_'] * len(cssbands), ['SNR_'] * len(cssbands), cssbands)
         colnames = ['ID','Z_BEST']+list(itertools.chain(*namelists))
 
         LenCatTile = len(CatOfTile)
 
         # Output catalog for one tile
-        OutCssCatName = 'Cssos_magsim_SNR_tile_'+config['Hst2Css']['hst814file'][-12:-9]+'_'+schemecode+'.txt'
+        OutCssCatName = 'Cssos_magsim_SNR_tile_'+str(sys.argv[1])+'_'+schemecode+'.txt'
         if os.path.isfile(OutCssCatName) is True:
             os.remove(OutCssCatName)
         OutCssCat = open(OutCssCatName, mode='w')
