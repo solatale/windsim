@@ -606,7 +606,7 @@ class CentrlPhot:
         data_bkgmask; ndarray
         kphotpar;
         kronr;
-        mask_centr;
+        mark_centr;
         centflux;
         rsserr;
     """
@@ -735,10 +735,10 @@ class CentrlPhot:
 
         if self.centobj is not np.nan:
             censeg = segarr[int(self.centobj['y']),int(self.centobj['x'])]
-            self.mask_centr = copy.deepcopy(segarr)
-            # convert mask_centr setting central object with 1, other with 0
-            self.mask_centr[self.mask_centr != censeg] = 0
-            self.mask_centr[self.mask_centr == censeg] = 1
+            self.mark_centr = copy.deepcopy(segarr)
+            # convert mark_centr setting central object with 1, other with 0
+            self.mark_centr[self.mark_centr != censeg] = 0
+            self.mark_centr[self.mark_centr == censeg] = 1
 
             self.mask_other = copy.deepcopy(segarr)
             # convert mask_other, setting central object and background with 1, other with 0
@@ -749,7 +749,13 @@ class CentrlPhot:
             self.mask_other[self.mask_other<=np.max(segarr)] = 0
             self.mask_other[self.mask_other>0] = 1
 
-            self.data_bkg_masked = self.data_bkg * self.mask_other # self.mask_centr
+            self.maskall = copy.deepcopy(segarr)
+            # maskall is for background estimation, objects are set to 0, bkg is set to 1
+            self.maskall[self.maskall==0] = np.max(segarr)+1
+            self.maskall[self.maskall<(np.max(segarr)+1)] = 0
+            self.maskall[self.maskall>0] = 1
+
+            self.data_bkg_masked = self.data_bkg * self.mask_other # self.mark_centr
 
             if debug==True:
                 plt.imshow(self.mask_other, interpolation='nearest', cmap='gray', origin='lower')
@@ -768,7 +774,7 @@ class CentrlPhot:
 
         try:
             self.kronr, krflag = sep.kron_radius(data, self.centobj['x'], self.centobj['y'], \
-                                             self.centobj['a'], self.centobj['b'], self.centobj['theta'], 4) #, mask=self.mask_centr,maskthresh=0)
+                                             self.centobj['a'], self.centobj['b'], self.centobj['theta'], 4) #, mask=self.mark_centr,maskthresh=0)
         except Exception as e:
             print(self.centobj)
             print(e)
@@ -800,7 +806,7 @@ class CentrlPhot:
         else:
             print("'mask_bool' type error:\nmask_bool parameter is boolean.")
 
-        self.centflux, centfluxerr, flag = sep.sum_ellipse(data, self.centobj['x'], self.centobj['y'], self.centobj['a'], self.centobj['b'], self.centobj['theta'], CentrlPhot.kphotpar * kronr, subpix=1) #, mask=self.mask_centr,maskthresh=0.0)
+        self.centflux, centfluxerr, flag = sep.sum_ellipse(data, self.centobj['x'], self.centobj['y'], self.centobj['a'], self.centobj['b'], self.centobj['theta'], CentrlPhot.kphotpar * kronr, subpix=1) #, mask=self.mark_centr,maskthresh=0.0)
         # Here, self.centflux is electron counts, not fnu
         if self.centflux <= 0:
             return np.nan, np.nan
@@ -813,7 +819,7 @@ class CentrlPhot:
 
 
 
-def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
+def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
     # extract objects using "sep" program.
     # if np.sum(mask_det) < 0.1:
     #     mask_det = np.zeros(dataorig.shape)
@@ -830,7 +836,7 @@ def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, ann
     sigma_clip = SigmaClip(sigma=3.)
     bkg_estimator = MedianBackground()
     bkg0 = Background2D(data, (back_size,back_size), filter_size=(3, 3),
-                   sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
+                        sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
     objimg = data - bkg0.background
     obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
     seg0[seg0>0] = 1
@@ -847,15 +853,23 @@ def septractSameAp(dataorig, object_det, kronr_det, mask_det=0, debug=False, ann
     #     plt.title(annot+' Refined Background')
     #     plt.show()
 
-    if np.sum(mask_det)>1:
-        data_sub = (data - bkg.background)*mask_det
-    else:
-        data_sub = data - bkg.background
+    data_sub = data - bkg.background
+    backstatarr = np.ma.array(data_sub, mask=(stackphot.maskall<1))
+    data_sub = data_sub - np.mean(backstatarr)
 
+    if np.sum(mask_det)>1:
+        data_sub = data_sub*mask_det
+
+
+    # centmasked = copy.deepcopy(mask_det)
+    # print(backstatarr)
     if debug==True:
-        # centmasked = copy.deepcopy(mask_det)
-        backstatarr = np.ma.array(data_sub, mask=mask_det>0)
-        print('Mean data_sub background:', np.mean(backstatarr))
+        backstatarr2 = np.ma.array(data_sub, mask=(mask_det+stackphot.mark_centr)>1.01)
+        print('Mean data_sub background:', np.mean(backstatarr2))
+        backstatarr[backstatarr.mask]=0
+        m, s = np.mean(backstatarr), np.std(backstatarr)
+        plt.imshow(backstatarr, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+        plt.show()
 
     kphotpar = 2.5
 

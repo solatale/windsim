@@ -119,16 +119,17 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             DarkLevel = config.getfloat('Hst2Css', 'BDark') * expcss
             IdealImg = objwind.data * Scl2Sed + SkyLevel + DarkLevel  # e-
             IdealImg[IdealImg < 0] = 0
-            csstpkg.DataArr2Fits((IdealImg+ZeroLevel)/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
-            # if DebugTF == True:
+            if DebugTF == True:
+                csstpkg.DataArr2Fits((IdealImg+ZeroLevel)/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
             #     print(cssband, ' band Sum of IdealImg =', np.sum(IdealImg))
             # ImgPoiss = np.random.poisson(lam=IdealImg, size=objwinshape)
-            #
             ImgPoiss = IdealImg
             NoisNorm = csstpkg.NoiseArr(objwinshape, loc=0, scale=config.getfloat('Hst2Css', 'RNCss') * (numb) ** 0.5, func='normal')
+            # DigitizeImg = np.round((ImgPoiss + NoisNorm + ZeroLevel) / Gain)
             DigitizeImg = (ImgPoiss + NoisNorm + ZeroLevel) / Gain
             # DigitizeImg = (IdealImg + ZeroLevel)/Gain
-            csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
+            if DebugTF == True:
+                csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
 
             WinImgBands[bandi, ::] = DigitizeImg
 
@@ -164,10 +165,14 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             # if DebugTF == True:
             #     print(cssband, ' band Array Slice Sum =', np.sum(WinImgBands[bandi, ::]), 'e-')
             #     print(cssband, ' band Array Slice MagAB =', csstpkg.Ne2MagAB(np.sum(WinImgBands[bandi, ::]), cssband, expcss, TelArea))
-            AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10)
+            # AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10)
+            AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot, ObjWinPhot.centobj, ObjWinPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10)
 
             if DebugTF == True:
+                npixel = math.pi*(ObjWinPhot.centobj['a']*2.5*ObjWinPhot.kronr)*(ObjWinPhot.centobj['b']*2.5*ObjWinPhot.kronr)
                 print(''.join([cssband, ' band simu ADU=', str(AduObser), ' ErrNe=', str(ErrAduObs)]))
+                print('SNR =', AduObser/ErrAduObs)
+                print('Npixel =', npixel)
 
             if AduObser > 0:
                 SNR = AduObser / ErrAduObs
