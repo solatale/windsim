@@ -33,4 +33,3 @@ for i,afile in enumerate(files):
         if content is not '':
             mergecata.write(content)
 
-print(sys.argv[2])

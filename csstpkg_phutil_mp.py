@@ -121,6 +121,9 @@ backsky = {'Nuv': 0.0032,
 lambd = np.linspace(1000, 12000, 11001, endpoint=True)
 lambdarr = np.transpose(np.vstack((lambd,lambd)))
 
+kphotpar = 2.5
+
+
 # solute snr--count rate equation, crs is in unit of e- s-1:
 def crs_solut(texp=texp0*nread0, tread=tread0*nread0, snr=snrlim, npix=npix80, bsky=0.1, bdet=bdet0, bscat=scatlght, nread=nread0,
               rn=rn0):
@@ -190,38 +193,40 @@ def cr2fnu(crs, hplk=hplk, band='g', mirrarea=aeff):
     return fnu
 
 
-def mag2snr(mag, band='g',area=100.):
+def mag2snr(mag, expcss, numb, band='g',area=100.):
     # mag is the magnitude inside the measurement aperture;
     cr = mag2cr(mag, band=band)
     # if cr<1:
     #     print 'Count Rate < 1 ! (',cr,')'
     #     raise SystemExit
     # crpoi = np.random.poisson(cr,1)
-    snri = cr2snr(cr, texp=texp0*nread0, tread=tread0*nread0, npix=area, bsky=backsky[band], bdet=bdet0, nread=nread0, rn=rn0)
+    snri = cr2snr(cr, texp=expcss, tread=tread0*numb, npix=area, bsky=backsky[band], bdet=bdet0, nread=numb, rn=rn0)
     # print snri
     return snri
 
-def magpnt(band, bsky=0.1, texp=texp0*nread0, tread=tread0*2, nread=nread0):
+
+def magpnt(band, bsky=0.1, texp=texp0*nread0, tread=tread0*nread0, nread=nread0):
     xa = bandpos[band][0]
     xb = bandpos[band][2]
     essctel = ecsscntel(band, xa, xb)
     # efflamb_1 = 0.2094
     # print essctel
     crs = crs_solut(texp=texp, tread=tread, bsky=bsky, nread=nread)
-    fnu = crs / ee / aeff * hplk / essctel / 0.95 / math.log(bandpos[band][2]/bandpos[band][0])
+    fnu = crs / ee / aeff * hplk / essctel / math.log(bandpos[band][2]/bandpos[band][0])
     # print 'fnu =', fnu
     # mag = -2.5 * math.log10(fnu) - 48.6
     mag = -2.5*math.log10(fnu/fnu0)
     return mag
+
 
 def magext(band, bsky=0.1, npixext=217, snr=10., lumfrac=0.9):
     xa = bandpos[band][0]
     xb = bandpos[band][2]
     essctel = ecsscntel(band, xa, xb)
     # crs = crs_solut(snr=10, npix = npixR90ser, bsky=bsky) # Sersic
-    # fnu = crs / 0.9 / aeff * hplk / essctel / 0.95      # Sersic
+    # fnu = crs / 0.9 / aeff * hplk / essctel       # Sersic
     crs = crs_solut(snr=10, npix=npixext, bsky=bsky)  # Gaussian
-    fnu = crs / lumfrac / aeff * hplk / essctel / 0.95 / math.log(bandpos[band][2]/bandpos[band][0])     # Gaussian
+    fnu = crs / lumfrac / aeff * hplk / essctel / math.log(bandpos[band][2]/bandpos[band][0])     # Gaussian
     mag = -2.5 * math.log10(fnu) - 48.6
     return mag
 
@@ -264,6 +269,7 @@ def curvemultiply(curve1,curve2):
                             newcurve12y.reshape(newcurve12y.shape[0],1)))
     return newcurve12
 
+
 def curvedevision(curve1, curve2):
     xmin1 = curve1[0, 0]
     xmax1 = curve1[-1, 0]
@@ -286,15 +292,18 @@ def curvedevision(curve1, curve2):
                             newcurve12y.reshape(newcurve12y.shape[0],1)))
     return newcurve12
 
+
 def quadrat(curve, a=1000., b=12000., dx=1.):
     xab = np.where((curve[:,0]>=a) & (curve[:,0]<=b))
     integr = np.trapz(curve[xab,1], curve[xab,0], dx=1)
     # integr = np.sum(curve[xab,1])*dx
     return integr
 
+
 def equiveff(curve, xa, xb, dx=1.):
     sum = quadrat(curve, a=xa, b=xb, dx=dx)
     return sum/(xb-xa)
+
 
 def ecsscntel(band, xa, xb, dx=1.):
     curve = np.loadtxt('./throughput/'+band+'.txt')
@@ -319,6 +328,7 @@ def ecsscntel(band, xa, xb, dx=1.):
     # q = q*effmodfact[band]
     # print '\nEcssc_tel =', q
     return q
+
 
 class galser():
 
@@ -449,18 +459,19 @@ class galser():
             return {
                 'x': self.model.x_0.unit,
                 'y': self.model.y_0.unit}
-        
+
+
 class psfgauss():
-    def __init__(self, fwhm=psffwhmpix, ampli=1., imgwidth = psfimgwidth):
+    def __init__(self, ampli=1., sigma_x=psffwhmpix/2.355, sigma_y=psffwhmpix/2.355, theta=0, imgwidth = psfimgwidth):
         self.dx = dx
         self.ampli = ampli
-        self.fwhm = fwhm # CSST pixel
         # self.fwhmpix = self.fwhm/dx # sampling pixel
-        self.xstddev = self.fwhm/2.355
-        self.ystddev = self.fwhm/2.355
+        self.xstddev = sigma_x
+        self.ystddev = sigma_y
+        self.theta = theta
         
-        self.xpixels = (imgwidth+self.dx)/self.dx # sampling pixel
-        self.ypixels = (imgwidth+self.dx)/self.dx # sampling pixel
+        self.xpixels = (imgwidth)/self.dx # sampling pixel
+        self.ypixels = (imgwidth)/self.dx # sampling pixel
         self.x, self.y = np.meshgrid(np.arange(self.xpixels) * self.dx,\
                                      np.arange(self.ypixels) * self.dx) # actual value
         # print self.x, '\n', self.y
@@ -468,9 +479,9 @@ class psfgauss():
     def gauss(self):
         self.orig0 = np.array([(self.xpixels + 1) / 2. * self.dx, (self.ypixels + 1) / 2. * self.dx])
         self.model = Gaussian2D(amplitude=self.ampli, x_mean=self.orig0[0], y_mean=self.orig0[1],
-                                x_stddev=self.xstddev, y_stddev=self.ystddev)
+                                x_stddev=self.xstddev, y_stddev=self.ystddev, theta=self.theta)
         self.image = self.model(self.x, self.y) # x,y are actual values
-        return self.orig0, self.model, self.image
+        # return self.orig0, self.model, self.image
     
     def psfphot(self):
         orig0, model, image = self.gauss()
@@ -481,7 +492,8 @@ class psfgauss():
         # Elliptical aperture(s), defined in pixel coordinates.
         # print apertures
         result = aptrphoto(image, aperture)
-        return result
+        # return result
+
 
 def mod2data(model,imagewidth):
     # self.dx = dx
@@ -493,6 +505,7 @@ def mod2data(model,imagewidth):
     x, y = np.meshgrid(np.arange(xpixels) * dx, np.arange(ypixels) * dx)  # actual value
     data = model(x, y)
     return data
+
 
 # for e=(1-b/a) ellipticity:
 # def aptrphot(ndarray, origcen=np.array([0,0]), reff=10, ellip=0.5):
@@ -509,6 +522,7 @@ def aptrphot(ndarray, origcen=np.array([0,0]), reff=10, ellip=0.5):
     apertures = [ellipaptr(origcen / dx, r/(ellip**0.5), r*(ellip**0.5), 0) for r in aperradii / dx]
     result = aptrphoto(ndarray, apertures)
     return result
+
 
 def aptrphotfrac(galmodel, ndarray, origcen=np.array([0,0]), reff=10, ellip=0.5, frac=0.5):
     # Ie = galmodel.amplitude
@@ -554,6 +568,7 @@ def aptrphotfrac(galmodel, ndarray, origcen=np.array([0,0]), reff=10, ellip=0.5,
     result = aptrphoto(ndarray, aperture)
     return radiusfrac, result
 
+
 def sqdeg(width, height=0.):
     """
     :param width: in degree; if give only width, it is apex angle of a cone;
@@ -567,6 +582,7 @@ def sqdeg(width, height=0.):
         theta = width/2.
         sqdeg = 2 * math.pi * (1 - math.cos(theta/180.*math.pi)) * sr2sqdeg
     return sqdeg
+
 
 def round_mask(datarr, radius, maskval, loc=(0,0)):
     # loc values are natural numbers
@@ -604,7 +620,6 @@ class CentrlPhot:
         centobj; object
         data_bkg; ndarray
         data_bkgmask; ndarray
-        kphotpar;
         kronr;
         mark_centr;
         centflux;
@@ -614,6 +629,7 @@ class CentrlPhot:
     def __init__(self, dataorig, id='NA'):
         self.data = np.array(dataorig, dtype='float32')  #.byteswap().newbyteorder()
         self.id = id
+
 
     def Bkg(self, idb='NA', debug=False, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
         datahei, datawid = self.data.shape
@@ -628,7 +644,13 @@ class CentrlPhot:
         if debug==True:
             bkg_value = bkg_estimator.calc_background(self.data)
             print(bkg_value)
-        bkg0 = Background2D(self.data, back_size, filter_size=3, sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, edge_method='pad', exclude_percentile=100)
+        try:
+            bkg0 = Background2D(self.data, back_size, filter_size=3, sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, edge_method='pad', exclude_percentile=100)
+        except Exception as e:
+            if debug==True:
+                print(idb, self.data)
+                plt.imshow(self.data)
+                plt.show()
         objimg = self.data - bkg0.background
         obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
         seg0[seg0 > 0] = 1
@@ -636,23 +658,59 @@ class CentrlPhot:
         bkgimg = self.data - objs
         self.bkg = Background2D(bkgimg, (back_size, back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
 
-        # if debug==True:
-        #     print('bkg rms =', self.bkg.background_rms_median)
-        #     vmin = np.min(bkgimg)
-        #     vmax = np.max(bkgimg)
-        #     plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-        #     plt.title(idb+' Refined Background')
+        self.data_bkg = self.data - self.bkg.background
+        if debug==True:
+            print('Bkg.globalrms =', self.bkg.background_rms_median)
+
+        objects0, segarr0 = sep.extract(self.data_bkg, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+
+        # if debug == True:
+        #     plt.imshow(segarr0, interpolation='nearest', cmap='gray', origin='lower')
+        #     plt.title(idt+' extracted segments')
         #     plt.show()
 
-        return self.bkg
 
-    kphotpar = 2.5
+        self.maskall = copy.deepcopy(segarr0)
+        # maskall is for background estimation, objects are set to 0, bkg is set to 1
+        self.maskall[self.maskall==0] = np.max(segarr0)+1
+        self.maskall[self.maskall<(np.max(segarr0)+1)] = 0
+        self.maskall[self.maskall>0] = 1
+        backstatarr = np.ma.array(self.data_bkg, mask=(self.maskall<1))
 
-    def Centract(self, idt='NA', debug=False, thresh=1.5, err=None, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
+        self.bkg.background_median = self.bkg.background_median + np.mean(backstatarr)
+        self.bkg.background = self.bkg.background + np.mean(backstatarr)
+        self.data_bkg = self.data_bkg - np.mean(backstatarr)
+
+        if debug==True:
+            print('bkg rms =', self.bkg.background_rms_median)
+            vmin = np.min(self.bkg.background)
+            vmax = np.max(self.bkg.background)
+            plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+            plt.title(idb+' Refined Background')
+            plt.show()
+
+            # plot background-subtracted image
+            fig, ax = plt.subplots()
+            m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
+            ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+            # plot an ellipse for each object
+            for objecti in objects0:
+                kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
+                e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
+                e.set_facecolor('none')
+                e.set_edgecolor('red')
+                ax.add_artist(e)
+            plt.title(str(idb)+"'s detected objects")
+            plt.show()
+
+
+    def Centract(self, idt='NA', debug=False, sub_backgrd_bool=False, thresh=1.5, err=None, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
         """
-        Generate data-background image and extract Object of sources at the center.
+        Generate data-background image and extract Object of sources at the center. If set sub_backgrd_bool to True,
+        the following KronR and EllPhot functions will use the data_bkg image, otherwise they will use self.data.
         :param idt: ID or annotation words.
         :param debug:
+        :param sub_backgrd_bool:
         :param thresh: Threshold pixel value for detection. If an err array is not given, this is interpreted as an absolute threshold. If err is given, this is interpreted as a relative threshold.
         :param err: float or ndarray, optional.
         :param minarea:
@@ -662,32 +720,14 @@ class CentrlPhot:
         :return:
         """
 
-        self.data_bkg = self.data - self.bkg.background
-        if debug==True:
-            print('Bkg.globalrms =', self.bkg.background_rms_median)
+        self.idt = idt
 
+        if sub_backgrd_bool == False:
+            self.dataphot = self.data
+        elif sub_backgrd_bool == True:
+            self.dataphot = self.data_bkg
 
-        objects, segarr = sep.extract(self.data_bkg, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-        if debug == True:
-            plt.imshow(segarr, interpolation='nearest', cmap='gray', origin='lower')
-            plt.title(idt+' extracted segments')
-            plt.show()
-
-        if debug == True:
-            # plot background-subtracted image
-            fig, ax = plt.subplots()
-            m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
-            ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
-            # plot an ellipse for each object
-            for objecti in objects:
-                kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
-                e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*CentrlPhot.kphotpar*2, height=objecti['b']*kronrdets*CentrlPhot.kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
-                e.set_facecolor('none')
-                e.set_edgecolor('red')
-                ax.add_artist(e)
-            plt.title(str(idt)+"'s detected objects")
-            plt.show()
-
+        objects, segarr = sep.extract(self.dataphot, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
 
         # print(len(objects))
         if len(objects)>=1:
@@ -709,30 +749,6 @@ class CentrlPhot:
                 print('no object detected')
             self.centobj = np.nan
 
-        #     idx = np.argmin(tocenter[:,0]**2+tocenter[:,1]**2)
-        #     # idx = np.argmin(tocenter[:,0]*tocenter[:,1])
-        #     self.centobj=objects[idx]
-        #     # if ((abs(self.centobj['x'] - self.data_bkg.shape[1] / 2. + 1) > 4) & (abs(self.centobj['y'] - self.data_bkg.shape[0] / 2. + 1) > 4)):
-        #     if (((self.centobj['x']-(self.data_bkg.shape[1]/2.+0.5))**2+(self.centobj['y']-(self.data_bkg.shape[0]/2.+0.5))**2)**0.5 > 4):
-        #         if debug == True:
-        #             print('multiple objects all deviate center')
-        #             self.centobj = np.nan
-        #     # print('An object extracted')
-        # elif len(objects)==1:
-        #     self.centobj = objects[0]
-        #     # print(abs(self.centobj['x']-self.data_bkg.shape[1]/2.+1))
-        #     # print(abs(self.centobj['y']-self.data_bkg.shape[0]/2.+1))
-        #     # if ((abs(self.centobj['x']-self.data_bkg.shape[1]/2.+1)>4) & (abs(self.centobj['y']-self.data_bkg.shape[0]/2.+1)>4)):
-        #     if (((self.centobj['x']-((self.data_bkg.shape[1]-1)/2.+1))**2+(self.centobj['y']-((self.data_bkg.shape[0]-1)/2.+1))**2)**0.5 > 4):
-        #         if debug == True:
-        #             print('single object deviates center')
-        #         self.centobj = np.nan
-        #     # print('An object extracted')
-        # else:
-        #     if debug == True:
-        #         print('no object detected')
-        #     self.centobj = np.nan
-
         if self.centobj is not np.nan:
             censeg = segarr[int(self.centobj['y']),int(self.centobj['x'])]
             self.mark_centr = copy.deepcopy(segarr)
@@ -749,13 +765,8 @@ class CentrlPhot:
             self.mask_other[self.mask_other<=np.max(segarr)] = 0
             self.mask_other[self.mask_other>0] = 1
 
-            self.maskall = copy.deepcopy(segarr)
-            # maskall is for background estimation, objects are set to 0, bkg is set to 1
-            self.maskall[self.maskall==0] = np.max(segarr)+1
-            self.maskall[self.maskall<(np.max(segarr)+1)] = 0
-            self.maskall[self.maskall>0] = 1
 
-            self.data_bkg_masked = self.data_bkg * self.mask_other # self.mark_centr
+            self.dataphot_maskother = self.dataphot * self.mask_other # self.mark_centr
 
             if debug==True:
                 plt.imshow(self.mask_other, interpolation='nearest', cmap='gray', origin='lower')
@@ -763,18 +774,19 @@ class CentrlPhot:
                 plt.show()
 
 
+
     def KronR(self, idk='NA', debug=False, mask_bool=False):
 
         if mask_bool is False:
-            data = self.data_bkg
+            data = self.dataphot
         elif mask_bool is True:
-            data = self.data_bkg_masked
+            data = self.dataphot_maskother
         else:
             print("'mask_bool' type error:\nmask_bool parameter is boolean.")
 
         try:
             self.kronr, krflag = sep.kron_radius(data, self.centobj['x'], self.centobj['y'], \
-                                             self.centobj['a'], self.centobj['b'], self.centobj['theta'], 4) #, mask=self.mark_centr,maskthresh=0)
+                                                 self.centobj['a'], self.centobj['b'], self.centobj['theta'], 4) #, mask=self.mark_centr,maskthresh=0)
         except Exception as e:
             print(self.centobj)
             print(e)
@@ -788,38 +800,38 @@ class CentrlPhot:
             m, s = np.mean(data), np.std(data)
             ax.imshow(data, interpolation='nearest', cmap='gray', origin='lower', vmin=m-2*s, vmax=m+3*s)
             # plot an ellipse for each object
-            e = Ellipse(xy=(self.centobj['x'], self.centobj['y']), width=CentrlPhot.kphotpar*self.kronr*self.centobj['a']*2, height=CentrlPhot.kphotpar*self.kronr*self.centobj['b']*2, angle=self.centobj['theta'] * 180. / np.pi)
+            e = Ellipse(xy=(self.centobj['x'], self.centobj['y']), width=kphotpar*self.kronr*self.centobj['a']*2, height=kphotpar*self.kronr*self.centobj['b']*2, angle=self.centobj['theta'] * 180. / np.pi)
             e.set_facecolor('none')
             e.set_edgecolor('blue')
             ax.add_artist(e)
             plt.title(idk+"'s central object & aperture photometry")
             plt.show()
 
-        return self.kronr
 
     def EllPhot(self, kronr, debug=False, mask_bool=False):
 
         if mask_bool == False:
-            data = self.data_bkg
+            data = self.dataphot
         elif mask_bool == True:
-            data = self.data_bkg_masked
+            data = self.dataphot_maskother
         else:
             print("'mask_bool' type error:\nmask_bool parameter is boolean.")
 
-        self.centflux, centfluxerr, flag = sep.sum_ellipse(data, self.centobj['x'], self.centobj['y'], self.centobj['a'], self.centobj['b'], self.centobj['theta'], CentrlPhot.kphotpar * kronr, subpix=1) #, mask=self.mark_centr,maskthresh=0.0)
+        self.centflux, centfluxerr, flag = sep.sum_ellipse(data, self.centobj['x'], self.centobj['y'], self.centobj['a'], self.centobj['b'], self.centobj['theta'], kphotpar * kronr, subpix=5) #, mask=self.mark_centr,maskthresh=0.0)
         # Here, self.centflux is electron counts, not fnu
         if self.centflux <= 0:
             return np.nan, np.nan
-        npix = math.pi*(self.centobj['a']*CentrlPhot.kphotpar*kronr)*(self.centobj['b']*CentrlPhot.kphotpar*kronr)
+        npix = math.pi*(self.centobj['a']*kphotpar*kronr)*(self.centobj['b']*kphotpar*kronr)
         self.rsserr = np.sqrt(self.centflux+npix*self.bkg.background_rms_median**2)
         if debug==True:
+            print('Npix for centrlphot error estimation: '+self.id, npix)
             print('Flux:',self.centflux,'RSSErr:', self.rsserr)
 
         return self.centflux, self.rsserr
 
 
 
-def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
+def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0, sub_backgrd_bool=True):
     # extract objects using "sep" program.
     # if np.sum(mask_det) < 0.1:
     #     mask_det = np.zeros(dataorig.shape)
@@ -844,40 +856,46 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
     bkgimg = data - objs
     bkg = Background2D(bkgimg, (back_size,back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
 
-    # if debug==True:
-    #     print('bkg mean =', bkg.background_median)
-    #     print('bkg rms =', np.median(bkg.background_rms_median))
-    #     vmin = np.min(bkg.background)
-    #     vmax = np.max(bkg.background)
-    #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-    #     plt.title(annot+' Refined Background')
-    #     plt.show()
-
     data_sub = data - bkg.background
-    backstatarr = np.ma.array(data_sub, mask=(stackphot.maskall<1))
-    data_sub = data_sub - np.mean(backstatarr)
+    backstatarr = np.ma.array(data_sub, mask=(stackphot.maskall < 1))
+    bkg.background_median = bkg.background_median + np.mean(backstatarr)
+    bkg.background = bkg.background  + np.mean(backstatarr)
 
-    if np.sum(mask_det)>1:
-        data_sub = data_sub*mask_det
+        # if debug==True:
+        #     print('bkg mean =', bkg.background_median)
+        #     print('bkg rms =', np.median(bkg.background_rms_median))
+        #     vmin = np.min(bkg.background)
+        #     vmax = np.max(bkg.background)
+        #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        #     plt.title(annot+' Refined Background')
+        #     plt.show()
 
+    if sub_backgrd_bool == True:
+        dataphot = data_sub - np.mean(backstatarr)
+    elif sub_backgrd_bool == False:
+        dataphot = data
+    else:
+        print("'sub_backgrd_bool' type error:\nsub_backgrd_bool parameter is boolean.")
 
-    # centmasked = copy.deepcopy(mask_det)
-    # print(backstatarr)
-    if debug==True:
-        backstatarr2 = np.ma.array(data_sub, mask=(mask_det+stackphot.mark_centr)>1.01)
-        print('Mean data_sub background:', np.mean(backstatarr2))
-        backstatarr[backstatarr.mask]=0
-        m, s = np.mean(backstatarr), np.std(backstatarr)
-        plt.imshow(backstatarr, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
-        plt.show()
+    if np.sum(mask_det) > 1:
+        dataphot = dataphot * mask_det
 
-    kphotpar = 2.5
+        # centmasked = copy.deepcopy(mask_det)
+        # print(backstatarr)
+        # if debug==True:
+        #     backstatarr2 = np.ma.array(dataphot, mask=(mask_det+stackphot.mark_centr)>1.01)
+        #     print('Mean data_sub background:', np.mean(backstatarr2))
+        #     backstatarr[backstatarr.mask]=0
+        #     m, s = np.mean(backstatarr), np.std(backstatarr)
+        #     plt.imshow(backstatarr, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+        #     plt.show()
+
 
     if debug==True:
         # Plot Cleaned object
         fig, ax = plt.subplots()
-        m, s = np.mean(data_sub), np.std(data_sub)
-        im = ax.imshow(data_sub, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 3*s, origin='lower')
+        m, s = np.mean(dataphot), np.std(dataphot)
+        im = ax.imshow(dataphot, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 3*s, origin='lower')
         # plot an ellipse for each object
         e = Ellipse(xy=(object_det['x'], object_det['y']), width=kphotpar*kronr_det * object_det['a']*2, height=kphotpar*kronr_det * object_det['b']*2, angle=object_det['theta'] * 180. / np.pi)
         e.set_facecolor('none')
@@ -887,21 +905,23 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
         plt.show()
 
     # kphot_autopar = np.array([kphotpar])
-    flux, fluxerr, flag = sep.sum_ellipse(data_sub, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], kphotpar * kronr_det, subpix=1) #, mask=mask_det ,maskthresh=0)
-    # flux = np.sum(data_sub)
-    if flux < 0:
-        flux=0
+    flux, fluxerr, flag = sep.sum_ellipse(dataphot, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], kphotpar * kronr_det, subpix=5) #, mask=mask_det ,maskthresh=0)
+    # flux = np.sum(dataphot)
+    # if flux < 0:
+    #     flux=0
     # Here, flux is ADU counts, not fnu
     npix = math.pi*(object_det['a']*kphotpar*kronr_det)*(object_det['b']*kphotpar*kronr_det)
     rsserr = np.sqrt(flux+npix*bkg.background_rms_median**2)
     # rsserr = np.sqrt(flux+npix*bkg.globalrms**2)
     if debug == True:
         # print(annot,'Flux:',flux,'FluxErr:', rsserr)
+        print('Npix for rsserr estimation:',npix)
         print(annot, 'bkg rms:', bkg.background_rms_median)
     if rsserr == 0:
         return np.nan, np.nan
     else:
         return flux, rsserr
+
 
 
 def CRRatio(cssosband='i', nread=2, hstband='wfc_F814W', mag814=25, magcss=25):
@@ -994,26 +1014,6 @@ def modelgauss(objarr, wx_sig, wy_sig, x_0=0, y_0=0):
 def err2snr(magerr):
     snr = 1./(10**(0.4*magerr)-1)
     return snr
-
-
-class psfgauss():
-    def __init__(self, fwhm=1, ampli=1., imgwidth=10):
-        self.ampli = ampli
-        self.fwhm = fwhm  # CSST pixel
-        # self.fwhmpix = self.fwhm/dx # sampling pixel
-        self.xstddev = self.fwhm / 2.355
-        self.ystddev = self.fwhm / 2.355
-
-        self.xpixels = imgwidth  # sampling pixel
-        self.ypixels = imgwidth  # sampling pixel
-        self.x, self.y = np.meshgrid(np.arange(self.xpixels), np.arange(self.ypixels))  # actual value
-
-    def gauss(self):
-        self.orig0 = np.array([(self.xpixels - 1) / 2., (self.ypixels - 1) / 2.])
-        self.model = models.Gaussian2D(amplitude=self.ampli, x_mean=self.orig0[0], y_mean=self.orig0[1], x_stddev=self.xstddev, y_stddev=self.ystddev)
-        self.image = self.model(self.x, self.y)  # x,y are actual values
-        normimg = self.image/np.sum(self.image)
-        return self.orig0, self.model, normimg
 
 
 def ImgConvKnl(fwhmorig, fwhmgoal, pixscale, widthinfwhm=4):
@@ -1174,12 +1174,14 @@ def NoiseArr(shape, loc=0, scale=1, func='normal'):
     if func=='poisson':
         noisearr = np.random.poisson(lam=loc,size=shape)
     elif func=='normal':
-        noisearr = np.random.normal(loc=loc, scale=scale, size=shape)
+        noisearr = np.round(np.random.normal(loc=loc, scale=scale, size=shape))
     return noisearr
+
 
 def magab2fnu(magab):
     fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
     return fnu
+
 
 def mag2flam(magab, lambda0):
     """
@@ -1205,10 +1207,15 @@ def readsed(filename):
         header.append(specfile.readline())
     nfilters = int(header[3].split()[1])
     galsednrow = int(header[7].split()[1])
-    skiprows = 13+nfilters
+    pdfnrow = int(header[5].split()[1])
+    if pdfnrow>0:
+        flag = 1
+    else:
+        flag = 0
+    skiprows = 13+nfilters+pdfnrow
     specfile.close()
     fitsed=np.loadtxt(filename, skiprows=skiprows, max_rows=galsednrow)
-    return fitsed
+    return fitsed, flag
 
 
 def NeObser(sedarr, cssband, exptime, telarea):
@@ -1359,13 +1366,16 @@ def PlotKronrs(image, SourceObj):
     fig, ax = plt.subplots()
     ax.imshow(image, interpolation='nearest', cmap='gray', origin='lower')
     # plot an ellipse for each object
-    e = Ellipse(xy=(SourceObj.centobj['x'], SourceObj.centobj['y']), width=2 * SourceObj.kronr * SourceObj.centobj['a'] * 2,
-                height=2 * SourceObj.kronr * SourceObj.centobj['b'] * 2, angle=SourceObj.centobj['theta'] * 180. / np.pi)
+    e = Ellipse(xy=(SourceObj.centobj['x'], SourceObj.centobj['y']),
+                width=kphotpar * SourceObj.kronr * SourceObj.centobj['a'] * 2,
+                height=kphotpar * SourceObj.kronr * SourceObj.centobj['b'] * 2,
+                angle=SourceObj.centobj['theta'] * 180. / np.pi)
     e.set_facecolor('none')
     e.set_edgecolor('blue')
     ax.add_artist(e)
     plt.title(SourceObj.id+' Mask')
     plt.show()
+
 
 def sed2magab_energy_zero(cssband):
     """
@@ -1385,6 +1395,7 @@ def sed2magab_energy_zero(cssband):
     magab0 = 2.5 * math.log10(area) - 48.6
     return magab0
 
+
 def sed2magab_energy(modsed, cssband, magzero):
     magzb0 = MagAB_Ener_Zero(cssband)
     thrput = np.loadtxt(thrghdir + cssband + '.txt')
@@ -1394,6 +1405,7 @@ def sed2magab_energy(modsed, cssband, magzero):
     flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
     magab = -2.5 * math.log10(flux) + magzero
     return magab
+
 
 def sed2magab_photon_zero(cssband):
     """
@@ -1413,6 +1425,7 @@ def sed2magab_photon_zero(cssband):
     magab0 = 2.5 * math.log10(area) - 48.6
 
     return magab0
+
 
 def sed2magab_photon(modsed, cssband, magzero):
     magzb0 = MagAB_Ener_Zero(cssband)
