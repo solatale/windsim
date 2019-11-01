@@ -681,27 +681,27 @@ class CentrlPhot:
         self.bkg.background = self.bkg.background + np.mean(backstatarr)
         self.data_bkg = self.data_bkg - np.mean(backstatarr)
 
-        if debug==True:
-            print('bkg rms =', self.bkg.background_rms_median)
-            vmin = np.min(self.bkg.background)
-            vmax = np.max(self.bkg.background)
-            plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-            plt.title(idb+' Refined Background')
-            plt.show()
-
-            # plot background-subtracted image
-            fig, ax = plt.subplots()
-            m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
-            ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
-            # plot an ellipse for each object
-            for objecti in objects0:
-                kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
-                e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
-                e.set_facecolor('none')
-                e.set_edgecolor('red')
-                ax.add_artist(e)
-            plt.title(str(idb)+"'s detected objects")
-            plt.show()
+        # if debug==True:
+        #     print('bkg rms =', self.bkg.background_rms_median)
+        #     vmin = np.min(self.bkg.background)
+        #     vmax = np.max(self.bkg.background)
+        #     plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        #     plt.title(idb+' Refined Background')
+        #     plt.show()
+        #
+        #     # plot background-subtracted image
+        #     fig, ax = plt.subplots()
+        #     m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
+        #     ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+        #     # plot an ellipse for each object
+        #     for objecti in objects0:
+        #         kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
+        #         e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
+        #         e.set_facecolor('none')
+        #         e.set_edgecolor('red')
+        #         ax.add_artist(e)
+        #     plt.title(str(idb)+"'s detected objects")
+        #     plt.show()
 
 
     def Centract(self, idt='NA', debug=False, sub_backgrd_bool=False, thresh=1.5, err=None, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
@@ -736,7 +736,7 @@ class CentrlPhot:
             tocenter = np.abs(objxy-(np.array(self.data_bkg.shape)/2.+0.5))
             distances = (tocenter[:,0]**2+tocenter[:,1]**2)**0.5
             if debug == True:
-                print('Distances to center:\n',distances)
+                print('Distances to center: ',distances)
             if np.min(distances) > 4:
                 self.centobj = np.nan
                 if debug == True:
@@ -831,7 +831,7 @@ class CentrlPhot:
 
 
 
-def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0, sub_backgrd_bool=True):
+def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug=False, annot='', thresh=2., minarea=5, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0, sub_backgrd_bool=False):
     # extract objects using "sep" program.
     # if np.sum(mask_det) < 0.1:
     #     mask_det = np.zeros(dataorig.shape)
@@ -1029,8 +1029,9 @@ def ImgConvKnl(fwhmorig, fwhmgoal, pixscale, widthinfwhm=4):
 
     FwhmKnl = int((fwhmgoal ** 2 - fwhmorig ** 2) ** 0.5 / pixscale)  # in pixel
     PsfImgWidth = FwhmKnl * widthinfwhm + 1
-    ConvKernelNormal = psfgauss(fwhm=FwhmKnl, ampli=1, imgwidth=PsfImgWidth).gauss()[2]
-    DataArr2Fits(ConvKernelNormal, 'ExtraKernel.fits')
+    ConvKernelNormal = psfgauss(sigma_x=FwhmKnl/2.355, sigma_y=FwhmKnl/2.355, ampli=1, imgwidth=PsfImgWidth)
+    ConvKernelNormal.gauss()
+    DataArr2Fits(ConvKernelNormal.image, 'ExtraKernel.fits')
 
     return ConvKernelNormal
 
@@ -1208,10 +1209,11 @@ def readsed(filename):
     nfilters = int(header[3].split()[1])
     galsednrow = int(header[7].split()[1])
     pdfnrow = int(header[5].split()[1])
-    if pdfnrow>0:
-        flag = 1
-    else:
-        flag = 0
+    # if pdfnrow>0:
+    #     flag = 1
+    # else:
+    #     flag = 0
+    flag = 1
     skiprows = 13+nfilters+pdfnrow
     specfile.close()
     fitsed=np.loadtxt(filename, skiprows=skiprows, max_rows=galsednrow)

@@ -60,7 +60,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             continue
         # DataArr2Fits(objwind, ident+'_convwin.fits')
         objwinshape = objwind.shape
-        objwind.data = objwind.data*ExpCssFrm
+        objwind.data = objwind.data * ExpCssFrm
 
         WinImgBands = np.zeros((len(cssbands), objwinshape[0], objwinshape[1]))  # 3-D array contains images of all the cssbands
 
@@ -73,9 +73,9 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             print(' '.join([ident, '\nRA DEC:', str(cataline['RA']), str(cataline['DEC'])]))
 
         # Photometry for the central object on the convolved window
-        ObjWinPhot_DeBkg = csstpkg.CentrlPhot(objwind.data, id=str(outcatrowi[0]) + " ConvWdW")
-        ObjWinPhot_DeBkg.Bkg(idb=str(outcatrowi[0]) + " ConvWdW", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
-        ObjWinPhot_DeBkg.Centract(idt=str(outcatrowi[0]) + " ConvWdW", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=True)
+        ObjWinPhot_DeBkg = csstpkg.CentrlPhot(objwind.data, id=str(outcatrowi[0]) + " ConvWdW DeBkg")
+        ObjWinPhot_DeBkg.Bkg(idb=str(outcatrowi[0]) + " ConvWdW DeBkg", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
+        ObjWinPhot_DeBkg.Centract(idt=str(outcatrowi[0]) + " ConvWdW DeBkg", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=True)
         if ObjWinPhot_DeBkg.centobj is np.nan:
             print('--- No central object detected in convolved image ---')
             continue
@@ -84,11 +84,13 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
         NeConv_DeBkg, ErrNeConv_DeBkg = ObjWinPhot_DeBkg.EllPhot(ObjWinPhot_DeBkg.kronr, mask_bool=True)
 
+
         if ((NeConv_DeBkg <= 0) or (NeConv_DeBkg is np.nan)):
             if DebugTF == True:
                 print('NeConv_DeBkg for a winimg <= 0 or NeConv_DeBkg is np.nan')
             continue
 
+        noisebkg_conv = ObjWinPhot_DeBkg.bkg.background_rms_median
 
         if DebugTF == True:
             print('self.bkg Flux & ErrFlux =', ObjWinPhot_DeBkg.bkg.background_median, ObjWinPhot_DeBkg.bkg.background_rms_median)
@@ -103,22 +105,27 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         if readflag == 1:
             modsed[:, 1] = csstpkg.mag2flam(modsed[:, 1], modsed[:, 0])  # to convert model SED from magnitude to f_lambda(/A)
         else:
+            print('model sed is none.')
             continue
         bandi = 0
         NeBands = []
         magsimorigs = []
+        scalings = []
+
         for cssband, numb in zip(cssbands, filtnumb):
 
             expcss = 150. * numb  # s
             # cssbandpath = thrghdir+cssband+'.txt'
 
             NeABand0 = csstpkg.NeObser(modsed, cssband, expcss, TelArea)  # *cataline['SCALE_BEST']
+            if NeABand0<1:
+                continue
             magaband0 = csstpkg.Ne2MagAB(NeABand0, cssband, expcss, TelArea)
             delmag = magaband0 - float(cataline['MOD_' + cssband + '_css'])
             magsimorig_band = magaband0 - delmag
             NeABand = NeABand0/10**(-0.4*delmag)
 
-            print(NeABand0, magaband0, delmag)
+            # print(NeABand0, magaband0, delmag)
 
             NeBands.append(NeABand)
 
@@ -129,46 +136,58 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 print('Magsim_' + cssband + ' =', magsimorigs[bandi])
 
             Scl2Sed = NeABand / NeConv_DeBkg
+            scalings.append(Scl2Sed)
+
             if DebugTF == True:
-                print(ident, Scl2Sed)
+                print(ident, 'Scaling Factor: ', Scl2Sed)
 
 
             # ZeroLevel = config.getfloat('Hst2Css', 'BZero')
-            SkyLevel = csstpkg.backsky[cssband] * expcss
-            DarkLevel = config.getfloat('Hst2Css', 'BDark') * expcss
+            SkyLevel = 0 #csstpkg.backsky[cssband] * expcss
+            DarkLevel = 0 #config.getfloat('Hst2Css', 'BDark') * expcss
+            RNCssFrm = config.getfloat('Hst2Css', 'RNCss')
+
             # IdealImg = objwind.data * Scl2Sed + SkyLevel + DarkLevel  # e-
             IdealImg = ObjWinPhot_DeBkg.data_bkg * Scl2Sed # + SkyLevel + DarkLevel  # e-
             # IdealImg[IdealImg < 0] = 0
-            if DebugTF == True:
-                csstpkg.DataArr2Fits(IdealImg/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
-            #     print(cssband, ' band Sum of IdealImg =', np.sum(IdealImg))
-            # ImgPoiss = np.random.poisson(lam=IdealImg, size=objwinshape)
-
-            # Testing photometry for the scaled convolved window's central object
-            ObjWinPhot = csstpkg.CentrlPhot(IdealImg, id=(ident+" ConvWdW"))
-            try:
-                ObjWinPhot.Bkg(idb=ident + " ConvWdW", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
-            except Exception as e:
-                # print(NeConv_DeBkg, NeABand, IdealImg)
-                continue
-            ObjWinPhot.Centract(idt=ident + " ConvWdW", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=False)
-            if ObjWinPhot.centobj is np.nan:
-                print('--- No central object detected in testing photometry image---')
-                continue
-            else:
-                ObjWinPhot.KronR(idk=ident + " ConvWdW", debug=DebugTF, mask_bool=True)
-
-            NeConv, ErrNeConv = ObjWinPhot.EllPhot(ObjWinPhot.kronr, mask_bool=True)
 
             if DebugTF == True:
+                # csstpkg.DataArr2Fits(IdealImg/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
+
+                # Testing photometry for the scaled convolved window's central object
+                ObjWinPhot = csstpkg.CentrlPhot(IdealImg, id=(ident+" SclTesting"))
+                try:
+                    ObjWinPhot.Bkg(idb=ident + " SclTesting", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
+                except Exception as e:
+                    # print(NeConv_DeBkg, NeABand, IdealImg)
+                    continue
+                ObjWinPhot.Centract(idt=ident + " SclTesting", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=False)
+                if ObjWinPhot.centobj is np.nan:
+                    print('--- No central object detected in testing photometry image---')
+                    continue
+                else:
+                    ObjWinPhot.KronR(idk=ident + " SclTesting", debug=DebugTF, mask_bool=True)
+
+                NeConv, ErrNeConv = ObjWinPhot.EllPhot(ObjWinPhot.kronr, mask_bool=True)
+
                 print(' '.join(['Model electrons:', str(NeABand), '\nTesting Photometry After scaling:', str(NeConv)]))
 
-            # ImgPoiss = IdealImg
-            # NoisNorm = csstpkg.NoiseArr(objwinshape, loc=0, scale=config.getfloat('Hst2Css', 'RNCss') * (numb) ** 0.5, func='normal')
+            BkgNoiseTot = (SkyLevel + DarkLevel + RNCssFrm**2*numb)**0.5
+            if BkgNoiseTot**2 > (noisebkg_conv*Scl2Sed)**2:
+                Noise2Add = (BkgNoiseTot**2 - (noisebkg_conv*Scl2Sed)**2)**0.5
+            else:
+                Noise2Add = 0.001
+
+            if DebugTF == True:
+                print('Added Noise '+cssband+' band: ',Noise2Add)
+
+            # ImgPoiss = np.random.poisson(lam=IdealImg, size=objwinshape)
+            ImgPoiss = IdealImg
+            NoisNormImg = csstpkg.NoiseArr(objwinshape, loc=0, scale=Noise2Add, func='normal')
 
             # DigitizeImg = np.round((ImgPoiss + NoisNorm + ZeroLevel) / Gain)
-            # DigitizeImg = (ImgPoiss + NoisNorm) / Gain
-            DigitizeImg = IdealImg/Gain
+            DigitizeImg = (ImgPoiss + NoisNormImg) / Gain
+            # DigitizeImg = IdealImg/Gain
 
             if DebugTF == True:
                 csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
@@ -183,15 +202,15 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         WinImgStack = WinImgBands.sum(0)
         # print(WinImgStack.shape)
         # AduStack, ErrAduStack, ObjectStack, KronRStack, MaskStack = septract(WinImgStack, id=str(outcatrowi[0])+" Stack", debug=DebugTF, thresh=1.2, minarea=10)
-        StackPhot = csstpkg.CentrlPhot(WinImgStack, id=str(outcatrowi[0]) + " Stack")
-        StackPhot.Bkg(idb=str(outcatrowi[0]) + " Stack", debug=DebugTF, thresh=1.5, minarea=10)
-        StackPhot.Centract(idt=str(outcatrowi[0]) + " Stack", thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.1, debug=DebugTF)
+        StackPhot = csstpkg.CentrlPhot(WinImgStack, id=ident + " Stack")
+        StackPhot.Bkg(idb=ident + " Stack", debug=DebugTF, thresh=1.5, minarea=10)
+        StackPhot.Centract(idt=ident + " Stack", thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.1, debug=DebugTF)
         if StackPhot.centobj is np.nan:
             if DebugTF == True:
                 print('No central object on STACK image.')
             continue
         else:
-            StackPhot.KronR(idk=str(outcatrowi[0]) + " Stack", debug=DebugTF, mask_bool=True)
+            StackPhot.KronR(idk=ident + " Stack", debug=DebugTF, mask_bool=True)
         AduStack, ErrAduStack = StackPhot.EllPhot(StackPhot.kronr, mask_bool=True)
         if AduStack is np.nan:
             if DebugTF == True:
@@ -211,37 +230,46 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             #     print(cssband, ' band Array Slice Sum =', np.sum(WinImgBands[bandi, ::]), 'e-')
             #     print(cssband, ' band Array Slice MagAB =', csstpkg.Ne2MagAB(np.sum(WinImgBands[bandi, ::]), cssband, expcss, TelArea))
             # AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10)
-            AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot, ObjWinPhot.centobj, ObjWinPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10, sub_backgrd_bool=False)
 
-            if DebugTF == True:
-                npixel = math.pi*(ObjWinPhot.centobj['a']*csstpkg.kphotpar*ObjWinPhot.kronr)*(ObjWinPhot.centobj['b']*csstpkg.kphotpar*ObjWinPhot.kronr)
-                print(' '.join([cssband, 'band model e- =', str(NeBands[bandi]), 'e-']))
-                print(' '.join([cssband, 'band simul e- =', str(AduObser*Gain), 'e-', ' ErrNe=', str(ErrAduObs*Gain)]))
-                # print(AduObser, Gain, NeBands[bandi], -2.5*math.log10(AduObser*Gain/NeBands[bandi]))
-                print('SNR =', AduObser/ErrAduObs)
-                print('Npixel =', npixel)
-                print(''.join(['Magsim-Magsimorig =', str(-2.5*math.log10(AduObser*Gain/NeBands[bandi]))]))
-
-
-            if AduObser > 0:
-                SNR = AduObser / ErrAduObs
-                # MagObser = Ne2MagAB(AduObser*Gain,cssband,expcss,TelArea)
-                MagObser = -2.5 * math.log10(AduObser) + magab_zeros[bandi]
-                ErrMagObs = 2.5 * math.log10(1 + 1 / SNR)
+            SameApObj = csstpkg.CentrlPhot(WinImgBands[bandi, ::], id=ident+' '+cssband+' band CentralExtract')
+            SameApObj.Bkg(idb=ident+' '+cssband+' band CentralExtract', debug=DebugTF, thresh=1.5, minarea=10)
+            SameApObj.Centract(idt=ident+' '+cssband+' band CentralExtract', thresh=1.2, minarea=10, deblend_nthresh=32, deblend_cont=0.1, debug=DebugTF, sub_backgrd_bool=False)
+            if SameApObj.centobj is np.nan:
                 if DebugTF == True:
-                    if ((cssband == 'r') & (np.abs(MagObser - cataline['MOD_' + cssband + '_css']) > 1)):
-                        csstpkg.DataArr2Fits(objwind.data, ident + '_convwin_r.fits')
-                        csstpkg.DataArr2Fits(WinImgStack, ident + '_stack.fits')
-            else:
+                    print('No central object on simulated image.')
                 SNR = -99
                 MagObser = -99
                 ErrMagObs = -99
-            if DebugTF == True:
-                print(' '.join([cssband, 'band mag_model = ', str(cataline['MOD_' + cssband + '_css']), '(AB mag)']))
-                print(' '.join([cssband, 'band Magsim_orig = ', str(magsimorigs[bandi]), '(AB mag)']))
-                print(' '.join([cssband, 'band Mag_simul = ', str(MagObser), '(AB mag)']))
-                print(' '.join([cssband, 'band magerr_simul = ', str(ErrMagObs), '(AB mag)']))
-                print(' '.join(['Magsim - Magsimorig =', str(-2.5*math.log10(AduObser*Gain/NeBands[bandi]))]))
+            else:
+                AduObser, ErrAduObs = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot, ObjWinPhot_DeBkg.centobj, ObjWinPhot_DeBkg.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10, sub_backgrd_bool=False)
+
+                if AduObser > 0:
+                    ErrAduTot = (ErrAduObs ** 2 + (noisebkg_conv * scalings[bandi]) ** 2) ** 0.5
+                    SNR = AduObser / ErrAduTot
+                    # MagObser = Ne2MagAB(AduObser*Gain,cssband,expcss,TelArea)
+                    MagObser = -2.5 * math.log10(AduObser) + magab_zeros[bandi]
+                    ErrMagObs = 2.5 * math.log10(1 + 1 / SNR)
+                    if DebugTF == True:
+                        if ((cssband == 'r') & (np.abs(MagObser - cataline['MOD_' + cssband + '_css']) > 1)):
+                            csstpkg.DataArr2Fits(objwind.data, ident + '_convwin_r.fits')
+                            csstpkg.DataArr2Fits(WinImgStack, ident + '_stack.fits')
+                else:
+                    SNR = -99
+                    MagObser = -99
+                    ErrMagObs = -99
+
+                if DebugTF == True:
+                    npixel = math.pi*(ObjWinPhot_DeBkg.centobj['a']*csstpkg.kphotpar*ObjWinPhot_DeBkg.kronr)*(ObjWinPhot_DeBkg.centobj['b']*csstpkg.kphotpar*ObjWinPhot_DeBkg.kronr)
+                    print(' '.join([cssband, 'band model e- =', str(NeBands[bandi]), 'e-']))
+                    print(' '.join([cssband, 'band simul e- =', str(AduObser*Gain), 'e-', ' ErrNe=', str(ErrAduTot*Gain)]))
+                    # print(AduObser, Gain, NeBands[bandi], -2.5*math.log10(AduObser*Gain/NeBands[bandi]))
+                    print('SNR =', AduObser/ErrAduTot)
+                    print('Npixel =', npixel)
+                    print(' '.join([cssband, 'band mag_model = ', str(cataline['MOD_' + cssband + '_css']), '(AB mag)']))
+                    print(' '.join([cssband, 'band Magsim_orig = ', str(magsimorigs[bandi]), '(AB mag)']))
+                    print(' '.join([cssband, 'band Mag_simul = ', str(MagObser), '(AB mag)']))
+                    print(' '.join([cssband, 'band magerr_simul = ', str(ErrMagObs), '(AB mag)']))
+                    print(' '.join(['Magsim - Magsimorig =', str(MagObser-magsimorigs[bandi])]))
 
             outcatrowi = outcatrowi + [cataline['MOD_' + cssband + '_css'], MagObser, ErrMagObs, SNR]
             bandi = bandi + 1
@@ -349,7 +377,7 @@ if __name__ == '__main__':
         HstPS = config.getfloat('Hst2Css','PixScaleHst')
         CssPS = config.getfloat('Hst2Css','PixScaleCss')
         ConvKernelNormal = csstpkg.ImgConvKnl(config.getfloat('Hst2Css','FwhmHst'), FwhmCssz, HstPS/nzoomin, widthinfwhm=4)
-        ConvHst2Css = csstpkg.ImgConv(HstImgArr, ConvKernelNormal, NDivide=ndivide, NZoomIn=nzoomin, NZoomOut=nzoomout)
+        ConvHst2Css = csstpkg.ImgConv(HstImgArr, ConvKernelNormal.image, NDivide=ndivide, NZoomIn=nzoomin, NZoomOut=nzoomout)
 
         CssHdr = csstpkg.CRValTrans(HstHdr, HstPS, CssPS)
 
