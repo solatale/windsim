@@ -651,6 +651,7 @@ class CentrlPhot:
                 print(idb, self.data)
                 plt.imshow(self.data)
                 plt.show()
+        # print(idb)
         objimg = self.data - bkg0.background
         obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
         seg0[seg0 > 0] = 1
@@ -727,7 +728,11 @@ class CentrlPhot:
         elif sub_backgrd_bool == True:
             self.dataphot = self.data_bkg
 
-        objects, segarr = sep.extract(self.dataphot, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+        try:
+            objects, segarr = sep.extract(self.dataphot, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+        except Exception as e:
+            self.centobj = np.nan
+            objects = ''
 
         # print(len(objects))
         if len(objects)>=1:
@@ -907,8 +912,8 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
     # kphot_autopar = np.array([kphotpar])
     flux, fluxerr, flag = sep.sum_ellipse(dataphot, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], kphotpar * kronr_det, subpix=5) #, mask=mask_det ,maskthresh=0)
     # flux = np.sum(dataphot)
-    # if flux < 0:
-    #     flux=0
+    if flux < 0:
+        flux=0
     # Here, flux is ADU counts, not fnu
     npix = math.pi*(object_det['a']*kphotpar*kronr_det)*(object_det['b']*kphotpar*kronr_det)
     rsserr = np.sqrt(flux+npix*bkg.background_rms_median**2)
@@ -920,7 +925,7 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
     if rsserr == 0:
         return np.nan, np.nan
     else:
-        return flux, rsserr
+        return flux, rsserr, npix, bkg.background_rms_median
 
 
 
@@ -1255,6 +1260,21 @@ def Ne2MagAB(NeDet, cssband, exptime, telarea):
     return magab
 
 
+def Ne2Fnu(NeDet, cssband, exptime, telarea):
+    """
+    calculate flux in fnu from detected electron number, assuming f_nu is constantly.
+    thrarr is not necessory to be sampled evenly.
+    throughput array is in T_lambda(/A).
+    """
+    # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = thrfine[:,1]/thrfine[:,0]  # to be integrated
+    Integ = np.trapz(ToBeInteg, x=thrfine[:,0], dx=1.)
+    fnu = NeDet*hplk/exptime/telarea/Integ  # fnu in ergs/Hz/s/cm^2
+    return fnu
+
+
 def MagAB_Zero(Gain, cssband, exptime, telarea):
     """
     calculate AB magnitude zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
@@ -1269,6 +1289,21 @@ def MagAB_Zero(Gain, cssband, exptime, telarea):
     fnu0 = 1.0*Gain*hplk/exptime/telarea/Integ  # fnu in ergs/Hz/s/cm^2
     magab0 = -2.5*math.log10(fnu0)-48.6
     return magab0
+
+
+def FluxAdu_Zero(Gain, cssband, exptime, telarea):
+    """
+    calculate AB magnitude zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
+    thrarr is not necessory to be sampled evenly.
+    throughput array is in T_lambda(/A).
+    """
+    # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = thrfine[:,1]/thrfine[:,0]  # to be integrated
+    Integ = np.trapz(ToBeInteg, x=thrfine[:,0], dx=1.)
+    fnu0 = 1.0*Gain*hplk/exptime/telarea/Integ  # fnu in ergs/Hz/s/cm^2
+    return fnu0
 
 
 def CRValTrans(fitsheader,iniPS,finPS):
