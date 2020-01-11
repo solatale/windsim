@@ -52,13 +52,14 @@ taborig.rename_column(taborig.colnames[0], 'ID')
 taborig.rename_column(taborig.colnames[1], 'zfit')
 taborig.rename_column(taborig.colnames[-1], 'zinput')
 
-print(taborig)
+# print(taborig)
 
 deltaz = np.abs(taborig['zfit']-taborig['zinput'])
 tab = taborig[deltaz/(1+taborig['zinput'])<=0.15]
 print(len(tab),'/',len(deltaz))
 fc = 1.-float(len(tab))/len(deltaz)
 sigma=signmad(tab)
+sigmaorig=signmad(taborig)
 
 
 # print(taborig['col1','col2','col41'])
@@ -92,6 +93,7 @@ sigma=signmad(tab)
 
 print('Catastrophic fraction =',fc)
 print('sigma_NMAD =',sigma)
+print('sigma_NMAD All =',sigmaorig)
 
 # corcoef = np.corrcoef(tab['zfit'],tab['zinput'])
 #
@@ -101,22 +103,28 @@ print('sigma_NMAD =',sigma)
 # resid = tab['zfit']-(tab['zinput']*slope+intercept)
 # print(np.std(stats.sigmaclip(resid,4,4)[0]),r)
 
-x=np.arange(6)
-y=x#*slope+intercept
 
-plt.figure()
+plt.figure(figsize=(5,5))
+plt.plot([0,10],[0,10],'-', color='dodgerblue', linewidth=0.5)
+plt.plot(np.array([0,10]), 0.15+1.15*np.array([0,10]), ls='--',  color='dodgerblue', linewidth=0.5)
+plt.plot(np.array([0,10]), -0.15+0.85*np.array([0,10]), '--', color='dodgerblue', linewidth=0.5)
 plt.scatter(taborig['zinput'],taborig['zfit'],s=0.5,c='black')
 plt.scatter(tab['zinput'],tab['zfit'],s=0.5,c='red')
-plt.plot(x,y,'--')
 ax=gca()
-ax.set_xlim(0,5)
-ax.set_ylim(0,5)
+ax.set_xlim(0,3)
+ax.set_ylim(0,3)
 ax.set_title('Bands Added Scheme')
 ax.set_xlabel('$z_{\\rm input}$')
 ax.set_ylabel('$z_{\\rm fit}$')
 ax.annotate('$\sigma_{\\rm NMAD} = $'+'{0:7.4f}'.format(sigma),
-            xy=(0.9,0.1), xycoords='axes fraction', horizontalalignment='right')
+            xy=(0.95,0.2), xycoords='axes fraction', horizontalalignment='right')
+ax.annotate('$\sigma_{\\rm NMAD\ All} = $'+'{0:7.4f}'.format(sigmaorig),
+            xy=(0.95,0.15), xycoords='axes fraction', horizontalalignment='right')
 ax.annotate('$f_c = $'+'{0:7.4%}'.format(fc),
-            xy=(0.9,0.05), xycoords='axes fraction', horizontalalignment='right')
+            xy=(0.95,0.1), xycoords='axes fraction', horizontalalignment='right')
 datetag=dt.date.today().strftime('%m%d')
 plt.savefig(sys.argv[1].split('.')[0]+'.png', format='png', dpi=300)
+print('Figure '+sys.argv[1].split('.')[0]+'.png'+' saved.')
+plt.show()
+
+print('Finished.')
