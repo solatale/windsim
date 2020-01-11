@@ -44,7 +44,7 @@ rn0 = 5.  # "e pixel-1"
 
 hplk = 6.626e-27  # erg.s
 cvlcm = 2.998e10  # cm/s
-pixscale = 0.074  # "/pix
+# pixscale = 0.074  # "/pix
 pixsize = 10*1e-4  # cm
 aeff = math.pi*100**2  # cm^2
 averfact = 0.5
@@ -54,8 +54,6 @@ ee = 0.8
 fnu0w = 3.63e-23  # W/m^2/Hz
 fnu0 = 3.63e-20   # erg/cm^2/s/Hz
 
-psffwhm = 0.15*2/1.794*1.1774 # " for gaussian
-psffwhmpix = psffwhm/pixscale # csst pix, 2.66 pix
 psfrrms = 0.16722/0.074/2 # Rrms of psf in pix, =1.13
 
 Bsky_f814w = 0.0279  # e-/s/pixel
@@ -75,22 +73,26 @@ defaults = {'basedir': '/work/CSSOS/filter_improve/fromimg/windextract'}
 config = configparser.ConfigParser(defaults)
 config.read('cssos_config.ini')
 
+pixscale = config.getfloat('Hst2Css', 'PixScaleCss')
+R80Cssz = config.getfloat('Hst2Css', 'R80Cssz')
+psffwhm = R80Cssz*2/1.794*1.1774 # " for gaussian
+psffwhmpix = psffwhm/pixscale # csst pix, 2.92 pix
 thrghdir = config['Hst2Css']['thrghdir']
 # seddir = config['Hst2Css']['seddir']
 
-filt = {'Nuv': './throughput/Nuv.txt',
+filt = {'NUV': './throughput/NUV.txt',
         'u': './throughput/u.txt',
         'g': './throughput/g.txt',
         'r': './throughput/r.txt',
         'i': './throughput/i.txt',
         'z': './throughput/z.txt',
         'y': './throughput/y.txt',
-        'WNuv': './throughput/WNuv.txt',
+        'WNUV': './throughput/WNUV.txt',
         'Wg': './throughput/Wg.txt',
         'Wi': './throughput/Wi.txt',
         'wfc_F814W': './throughput/wfc_F814W.txt'}
 
-bandpos = {'Nuv': [2480., 2877., 3260.],
+bandpos = {'NUV': [2480., 2877., 3260.],
             'v': [3510., 3825., 4170.],
             'u': [3130., 3595., 4080.],
             'g': [3910., 4798., 5610.],
@@ -98,20 +100,20 @@ bandpos = {'Nuv': [2480., 2877., 3260.],
             'i': [6770., 7642., 8540.],
             'z': [8250., 9046., 11000.],
             'y': [9140., 9654., 11000.],
-            'WNuv': [2480., 3090., 3700.],
+            'WNUV': [2480., 3090., 3700.],
             'Wg': [3500., 4950., 6400.],
             'Wi': [6100., 7750., 9400.],
             'wfc_F814W': [6890., 7985., 9640.],
             'skmp_v': [3500., 3870, 4180]}
 
-backsky = {'Nuv': 0.0032,
+backsky = {'NUV': 0.0032,
         'u': 0.017,
         'g': 0.1403,
         'r': 0.1797,
         'i': 0.1851,
         'z': 0.1,
         'y': 0.0271,
-        'WNuv': 0.0077,
+        'WNUV': 0.0077,
         'Wg': 0.2408,
         'Wi': 0.325,
         'wfc_F814W': 0.1364,
@@ -122,6 +124,19 @@ lambd = np.linspace(1000, 12000, 11001, endpoint=True)
 lambdarr = np.transpose(np.vstack((lambd,lambd)))
 
 kphotpar = 2.5
+
+
+
+def lambda_mean(curvarr, xmin=2000, xmax=11000, dx=1, pivot=False):
+    curvefine = interp(curvarr, xmin=xmin, xmax=xmax, dx=dx)
+    if pivot == True:
+        integ_Tlamb = np.trapz(curvefine[:,1], curvefine[:,0], dx=1)
+        integ_Tovlamb2 = np.trapz(curvefine[:,1]/curvefine[:,0]**2, curvefine[:,0], dx=1)
+        return (integ_Tlamb/integ_Tovlamb2)**0.5
+    elif pivot == False:
+        integlambTlamb = np.trapz(curvefine[:,0]*curvefine[:,1], curvefine[:,0], dx=1)
+        meanlamb = integlambTlamb/np.trapz(curvefine[:,1], curvefine[:,0], dx=1)
+        return meanlamb
 
 
 # solute snr--count rate equation, crs is in unit of e- s-1:
@@ -469,6 +484,7 @@ class psfgauss():
         self.xstddev = sigma_x
         self.ystddev = sigma_y
         self.theta = theta
+        self.imgwidth = imgwidth
         
         self.xpixels = (imgwidth)/self.dx # sampling pixel
         self.ypixels = (imgwidth)/self.dx # sampling pixel
@@ -477,21 +493,21 @@ class psfgauss():
         # print self.x, '\n', self.y
         
     def gauss(self):
-        self.orig0 = np.array([(self.xpixels + 1) / 2. * self.dx, (self.ypixels + 1) / 2. * self.dx])
+        self.orig0 = np.array([(self.xpixels + 1) / 2. * self.dx-1, (self.ypixels + 1) / 2. * self.dx-1])
         self.model = Gaussian2D(amplitude=self.ampli, x_mean=self.orig0[0], y_mean=self.orig0[1],
                                 x_stddev=self.xstddev, y_stddev=self.ystddev, theta=self.theta)
         self.image = self.model(self.x, self.y) # x,y are actual values
         # return self.orig0, self.model, self.image
     
     def psfphot(self):
-        orig0, model, image = self.gauss()
+        self.gauss()
         # print model
         self.radii = self.xpixels/2.
         # print self.radii; radii are in pixels (indexes);
-        aperture = ellipaptr(orig0/self.dx, self.radii, self.radii, 0)
+        self.photaperture = ellipaptr(self.orig0/self.dx, self.radii, self.radii, 0)
         # Elliptical aperture(s), defined in pixel coordinates.
         # print apertures
-        result = aptrphoto(image, aperture)
+        self.totfluxphot = aptrphoto(self.image, self.photaperture)
         # return result
 
 
@@ -678,17 +694,18 @@ class CentrlPhot:
         self.maskall[self.maskall>0] = 1
         backstatarr = np.ma.array(self.data_bkg, mask=(self.maskall<1))
 
-        self.bkg.background_median = self.bkg.background_median + np.mean(backstatarr)
-        self.bkg.background = self.bkg.background + np.mean(backstatarr)
-        self.data_bkg = self.data_bkg - np.mean(backstatarr)
+        mean_backstat = np.mean(backstatarr)
+        self.bkg.background_median = self.bkg.background_median + mean_backstat
+        self.bkg.background = self.bkg.background + mean_backstat
+        self.data_bkg = self.data_bkg - mean_backstat
 
-        # if debug==True:
-        #     print('bkg rms =', self.bkg.background_rms_median)
-        #     vmin = np.min(self.bkg.background)
-        #     vmax = np.max(self.bkg.background)
-        #     plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-        #     plt.title(idb+' Refined Background')
-        #     plt.show()
+        if debug==True:
+            print('bkg rms =', self.bkg.background_rms_median)
+            vmin = np.min(self.bkg.background)
+            vmax = np.max(self.bkg.background)
+            plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+            plt.title(idb+' Refined Background')
+            plt.show()
         #
         #     # plot background-subtracted image
         #     fig, ax = plt.subplots()
@@ -769,14 +786,16 @@ class CentrlPhot:
             # self.mask_other[self.mask_other==censeg] = max(segarr)+1
             self.mask_other[self.mask_other<=np.max(segarr)] = 0
             self.mask_other[self.mask_other>0] = 1
+            # if debug==True:
+            #     print(self.centobj['a'],self.centobj['b'])
 
 
             self.dataphot_maskother = self.dataphot * self.mask_other # self.mark_centr
 
-            if debug==True:
-                plt.imshow(self.mask_other, interpolation='nearest', cmap='gray', origin='lower')
-                plt.title(idt+"'s Mask")
-                plt.show()
+            # if debug==True:
+            #     plt.imshow(self.mask_other, interpolation='nearest', cmap='gray', origin='lower')
+            #     plt.title(idt+"'s Mask")
+            #     plt.show()
 
 
 
@@ -796,21 +815,21 @@ class CentrlPhot:
             print(self.centobj)
             print(e)
 
-        if debug==True:
-            print('a b kronri:', self.centobj['a'], self.centobj['b'], self.kronr)
-            # print(' '.join(['Kron Radius: ', str(self.kronri), '(pix)']))
-
-            # Plot Cleaned object
-            fig, ax = plt.subplots()
-            m, s = np.mean(data), np.std(data)
-            ax.imshow(data, interpolation='nearest', cmap='gray', origin='lower', vmin=m-2*s, vmax=m+3*s)
-            # plot an ellipse for each object
-            e = Ellipse(xy=(self.centobj['x'], self.centobj['y']), width=kphotpar*self.kronr*self.centobj['a']*2, height=kphotpar*self.kronr*self.centobj['b']*2, angle=self.centobj['theta'] * 180. / np.pi)
-            e.set_facecolor('none')
-            e.set_edgecolor('blue')
-            ax.add_artist(e)
-            plt.title(idk+"'s central object & aperture photometry")
-            plt.show()
+        # if debug==True:
+        #     print('a b kronri:', self.centobj['a'], self.centobj['b'], self.kronr)
+        #     # print(' '.join(['Kron Radius: ', str(self.kronri), '(pix)']))
+        #
+        #     # Plot Cleaned object
+        #     fig, ax = plt.subplots()
+        #     m, s = np.mean(data), np.std(data)
+        #     ax.imshow(data, interpolation='nearest', cmap='gray', origin='lower', vmin=m-2*s, vmax=m+3*s)
+        #     # plot an ellipse for each object
+        #     e = Ellipse(xy=(self.centobj['x'], self.centobj['y']), width=kphotpar*self.kronr*self.centobj['a']*2, height=kphotpar*self.kronr*self.centobj['b']*2, angle=self.centobj['theta'] * 180. / np.pi)
+        #     e.set_facecolor('none')
+        #     e.set_edgecolor('blue')
+        #     ax.add_artist(e)
+        #     plt.title(idk+"'s central object & aperture photometry")
+        #     plt.show()
 
 
     def EllPhot(self, kronr, debug=False, mask_bool=False):
@@ -862,21 +881,24 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
     bkg = Background2D(bkgimg, (back_size,back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
 
     data_sub = data - bkg.background
-    backstatarr = np.ma.array(data_sub, mask=(stackphot.maskall < 1))
-    bkg.background_median = bkg.background_median + np.mean(backstatarr)
-    bkg.background = bkg.background  + np.mean(backstatarr)
+    backstatarr_sa = np.ma.array(data_sub, mask=(stackphot.maskall < 1))
+    mean_backstat_sa = np.mean(backstatarr_sa)
+    bkg.background_median = bkg.background_median + mean_backstat_sa
+    bkg.background = bkg.background  + mean_backstat_sa
 
-        # if debug==True:
-        #     print('bkg mean =', bkg.background_median)
-        #     print('bkg rms =', np.median(bkg.background_rms_median))
-        #     vmin = np.min(bkg.background)
-        #     vmax = np.max(bkg.background)
-        #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-        #     plt.title(annot+' Refined Background')
-        #     plt.show()
+    if debug==True:
+        print('bkg mean =', bkg.background_median)
+        backrefine_sa = np.ma.array(data_sub - mean_backstat_sa, mask=(stackphot.maskall < 1))
+        print('Refined bkg for phot:', np.mean(backrefine_sa))
+    #     print('bkg rms =', np.median(bkg.background_rms_median))
+    #     vmin = np.min(bkg.background)
+    #     vmax = np.max(bkg.background)
+    #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+    #     plt.title(annot+' Refined Background')
+    #     plt.show()
 
     if sub_backgrd_bool == True:
-        dataphot = data_sub - np.mean(backstatarr)
+        dataphot = data_sub - mean_backstat_sa
     elif sub_backgrd_bool == False:
         dataphot = data
     else:
@@ -886,13 +908,13 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
         dataphot = dataphot * mask_det
 
         # centmasked = copy.deepcopy(mask_det)
-        # print(backstatarr)
+        # print(backstatarr_sa)
         # if debug==True:
-        #     backstatarr2 = np.ma.array(dataphot, mask=(mask_det+stackphot.mark_centr)>1.01)
-        #     print('Mean data_sub background:', np.mean(backstatarr2))
-        #     backstatarr[backstatarr.mask]=0
-        #     m, s = np.mean(backstatarr), np.std(backstatarr)
-        #     plt.imshow(backstatarr, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+        #     backstatarr_sa = np.ma.array(dataphot, mask=(mask_det+stackphot.mark_centr)>1.01)
+        #     print('Mean data_sub background:', np.mean(backstatarr_sa))
+        #     backstatarr_sa[backstatarr_sa.mask]=0
+        #     m, s = np.mean(backstatarr_sa), np.std(backstatarr_sa)
+        #     plt.imshow(backstatarr_sa, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
         #     plt.show()
 
 
@@ -1180,7 +1202,8 @@ def NoiseArr(shape, loc=0, scale=1, func='normal'):
     if func=='poisson':
         noisearr = np.random.poisson(lam=loc,size=shape)
     elif func=='normal':
-        noisearr = np.round(np.random.normal(loc=loc, scale=scale, size=shape))
+        # noisearr = np.round(np.random.normal(loc=loc, scale=scale, size=shape))
+        noisearr = np.random.normal(loc=loc, scale=scale, size=shape)
     return noisearr
 
 
