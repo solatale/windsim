@@ -1208,11 +1208,16 @@ def NoiseArr(shape, loc=0, scale=1, func='normal'):
 
 
 def magab2fnu(magab):
+    """
+    \To convert AB magnitude to flux in f_nu
+    :param magab: AB magnitude, scalar or an array
+    :return: f_nu
+    """
     fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
     return fnu
 
 
-def mag2flam(magab, lambda0):
+def magab2flam(magab, lambda0):
     """
     To convert AB magnitude to flux in f_lambda
     :param magab: AB magnitude, scalar or an array

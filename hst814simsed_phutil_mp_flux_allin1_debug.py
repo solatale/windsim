@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 # from pylab import gca
 # from mpl_toolkits.mplot3d import axes3d
 from astropy import wcs
-import sys,math,time,os,io
+import sys,math,time,os,io,glob
 import numpy as np
 # import scipy.ndimage as spimg
 # from scipy.stats import poisson
@@ -108,7 +108,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         sedname = seddir + 'Id' + '{:0>9}'.format(ident) + '.spec'
         modsed, readflag = csstpkg.readsed(sedname)
         if readflag == 1:
-            modsed[:, 1] = csstpkg.mag2flam(modsed[:, 1], modsed[:, 0])  # to convert model SED from magnitude to f_lambda(/A)
+            modsed[:, 1] = csstpkg.magab2flam(modsed[:, 1], modsed[:, 0])  # to convert model SED from magnitude to f_lambda(/A)
         else:
             print('model sed not found.')
             continue
@@ -196,8 +196,8 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             # DigitizeImg = np.round((ImgPoiss + NoisNormImg + ZeroLevel) / Gain)
             # DigitizeImg = IdealImg/Gain
 
-            if DebugTF == True:
-                csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
+            # if DebugTF == True:
+            #     csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
 
             WinImgBands[bandi, ::] = DigitizeImg
 
@@ -376,6 +376,11 @@ if __name__ == '__main__':
         HstFileName = HstFileName.replace(HstFileName[-12:-9], sys.argv[1])
         HstAsCssFile = HstAsCssFile.replace(HstAsCssFile[-8:-5], sys.argv[1])
         HstAsCssFileTest = HstAsCssFileTest.replace(HstAsCssFileTest[-8:-5], sys.argv[1])
+
+    remlst = glob.glob("Ideal_Zero_Gain_RN_check_*.fits")
+    for arem in remlst:
+        if os.path.exists(arem):
+            os.remove(arem)
 
     # if DebugTF == False:
     #     if os.system('ls *[0-9]_convwin_r.fits'):
