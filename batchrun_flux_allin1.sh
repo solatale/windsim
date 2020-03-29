@@ -9,11 +9,11 @@ if [ -e $mergelist ]
 fi
 tiles=''
 tsleep=1
-for tile in 065 #039 040 041 042 043 055 067 079 091 051 052 053 054 063 064 065 066 075 076 077 078 087 088 089 090
+for tile in 052 053 054 064 065 066 076 077 078 #039 040 041 042 043 055 067 079 091 051 052 053 054 063 064 065 066 075 076 077 078 087 088 089 090
     do
         simcatname="Cssos_FluxSim_SNR_tile_"$tile"_allin1.txt"
         echo $tile
-        python3 hst814simsed_phutil_mp_flux_allin1_debug.py $tile
+        python3 hst814simsed_phutil_mp_flux_allin1_debug_debkg.py $tile
         ls $simcatname >> $mergelist
         tmp=$tiles
         tiles=$tmp$tile
@@ -24,7 +24,7 @@ echo "Files to be merged:"
 cat $mergelist ; echo ''
 python3 SimuCataMerge.py $mergelist $mergedfile
 sleep $tsleep
-python3 fluxsim2lephare_allin1.py $mergedfile $schemecode
+python3 fluxsim2lephare_SNR10_allin1.py $mergedfile $schemecode
 sleep $tsleep
 tolephare_merged=${mergedfile%.*}"_"$schemecode"_flux_toLephare.txt"
 lephareout="OutFitCssos_tilemrg_"$tiles"_"$schemecode".out"
