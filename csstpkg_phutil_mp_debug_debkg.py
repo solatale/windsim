@@ -52,10 +52,10 @@ averfact = 0.5
 # ee = 0.85
 ee = 0.8
 
-# fnu0w = 3.63e-23  # W/m^2/Hz        for 48.6
-# fnu0  = 3.63e-20  # erg/cm^2/s/Hz   for 48.6
-fnu0w = 3.6644e-23  # W/m^2/Hz        for 48.59
-fnu0  = 3.6644e-20  # erg/cm^2/s/Hz   for 48.59
+fnu0w = 3.63e-23  # W/m^2/Hz        for 48.6
+fnu0  = 3.63e-20  # erg/cm^2/s/Hz   for 48.6
+# fnu0w = 3.6644e-23  # W/m^2/Hz        for 48.59
+# fnu0  = 3.6644e-20  # erg/cm^2/s/Hz   for 48.59
 
 psfrrms = 0.16722/0.074/2 # Rrms of psf in pix, =1.13
 
@@ -95,17 +95,17 @@ filt = {'NUV': './throughput/NUV.txt',
         'Wi': './throughput/Wi.txt',
         'wfc_F814W': './throughput/wfc_F814W.txt'}
 
-bandpos = {'NUV': [2480., 2877., 3260.],
+bandpos = {'NUV': [2480., 2866., 3260.],
             'v': [3510., 3825., 4170.],
-            'u': [3130., 3595., 4080.],
-            'g': [3910., 4798., 5610.],
-            'r': [5380., 6186., 7020.],
-            'i': [6770., 7642., 8540.],
-            'z': [8250., 9046., 11000.],
-            'y': [9140., 9654., 11000.],
+            'u': [3130., 3583., 4080.],
+            'g': [3910., 4750., 5610.],
+            'r': [5380., 6143., 7020.],
+            'i': [6770., 7600., 8540.],
+            'z': [8250., 9015., 11000.],
+            'y': [9140., 9664., 11000.],
             'WNUV': [2480., 3090., 3700.],
-            'Wg': [3500., 4950., 6400.],
-            'Wi': [6100., 7750., 9400.],
+            'Wg': [3500., 5016., 6400.],
+            'Wi': [6100., 7528., 9400.],
             'wfc_F814W': [6890., 7985., 9640.],
             'skmp_v': [3500., 3870, 4180]}
 
@@ -179,7 +179,7 @@ def cr2mag(crs, hplk=hplk, cvl=cvlcm, band='g', mirrarea=aeff, ee=1.):
     xb = bandpos[band][2]
     essctel = ecsscntel(band, xa, xb)
     fnu = crs/ee/mirrarea*hplk/essctel/math.log(bandpos[band][2]/bandpos[band][0])
-    mag = -2.5*math.log10(fnu)-48.59
+    mag = -2.5*math.log10(fnu)-48.6
     # mag = -2.5*math.log10(fnu/1e-32)+31.4
     return mag
 
@@ -190,7 +190,7 @@ def mag2cr(mag, band='g'):
     xa = bandpos[band][0]
     xb = bandpos[band][2]
     essctel = ecsscntel(band, xa, xb)
-    fnu = 10**(-0.4*(mag+48.59))
+    fnu = 10**(-0.4*(mag+48.6))
     crs = fnu/hplk*essctel*aeff*math.log(bandpos[band][2]/bandpos[band][0])
     return crs
 
@@ -232,7 +232,7 @@ def magpnt(band, bsky=0.1, texp=texp0*nread0, tread=tread0*nread0, nread=nread0)
     crs = crs_solut(texp=texp, tread=tread, bsky=bsky, nread=nread)
     fnu = crs / ee / aeff * hplk / essctel / math.log(bandpos[band][2]/bandpos[band][0])
     # print 'fnu =', fnu
-    # mag = -2.5 * math.log10(fnu) - 48.59
+    # mag = -2.5 * math.log10(fnu) - 48.6
     mag = -2.5*math.log10(fnu/fnu0)
     return mag
 
@@ -245,7 +245,7 @@ def magext(band, bsky=0.1, npixext=217, snr=10., lumfrac=0.9):
     # fnu = crs / 0.9 / aeff * hplk / essctel       # Sersic
     crs = crs_solut(snr=10, npix=npixext, bsky=bsky)  # Gaussian
     fnu = crs / lumfrac / aeff * hplk / essctel / math.log(bandpos[band][2]/bandpos[band][0])     # Gaussian
-    mag = -2.5 * math.log10(fnu) - 48.59
+    mag = -2.5 * math.log10(fnu) - 48.6
     return mag
 
 
@@ -267,7 +267,7 @@ def interp(curve,xmin=1000.,xmax=12000.,dx=1.):
     return newarr
 
 
-def curvemultiply(curve1,curve2):
+def curvemultiply(curve1, curve2, dx=1):
     xmin1 = curve1[0,0]
     xmax1 = curve1[-1,0]
 
@@ -277,8 +277,8 @@ def curvemultiply(curve1,curve2):
     xmin12 = min(xmin1,xmin2)
     xmax12 = max(xmax1,xmax2)
 
-    newcurve1 = interp(curve1, xmin12, xmax12, dx=1.)
-    newcurve2 = interp(curve2, xmin12, xmax12, dx=1.)
+    newcurve1 = interp(curve1, xmin12, xmax12, dx=dx)
+    newcurve2 = interp(curve2, xmin12, xmax12, dx=dx)
 
     newcurve12y = newcurve1[:,1]*newcurve2[:,1]
     newcurve12x = newcurve1[:,0]
@@ -1254,10 +1254,18 @@ def NoiseArr(shape, loc=0, scale=1, func='normal'):
 
 def pivot(cssband):
     thrput = np.loadtxt(thrghdir+cssband+'.txt')
-    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    lambeff = (np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=1)/np.trapz(thrputfine[:,1]/thrputfine[:,0]**2, x=thrputfine[:,0], dx=1))**0.5
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=10)
+    lambeff = (np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=10)/np.trapz(thrputfine[:,1]/thrputfine[:,0]**2, x=thrputfine[:,0], dx=10))**0.5
     return lambeff
 
+def lbmean_leph(cssband):
+    '''
+    Used as in Lephare for mean lambda: <lambda>
+    '''
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=10)
+    lambmean = np.trapz(thrputfine[:,1]*thrputfine[:,0], x=thrputfine[:,0], dx=10)/np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=10)
+    return lambmean
 
 
 def magab2fnu(magab):
@@ -1266,8 +1274,8 @@ def magab2fnu(magab):
     :param magab: AB magnitude, scalar or an array
     :return: f_nu
     """
-    # fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
-    fnu = (3.66438e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
+    fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz  for 48.6
+    # fnu = (3.66438e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz for 48.59
     return fnu
 
 
@@ -1278,8 +1286,8 @@ def magab2flam(magab, lambda0):
     :param lambda0: wavelength in angstrom, scalar or an array
     :return: f_lambda
     """
-    # fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
-    fnu = (3.66438e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
+    fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz  for 48.6
+    # fnu = (3.66438e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz for 48.59
     flam = fnu*3e18/(lambda0**2)  # in ergs/cm^2/s/A
     return flam
 
@@ -1346,7 +1354,7 @@ def Ne2MagAB(NeDet, cssband, exptime, telarea):
     ToBeInteg = thrfine[:,1]/thrfine[:,0]  # to be integrated
     Integ = np.trapz(ToBeInteg, x=thrfine[:,0], dx=1.)
     fnu = NeDet*hplk/exptime/telarea/Integ  # fnu in ergs/Hz/s/cm^2
-    magab = -2.5*math.log10(fnu)-48.59
+    magab = -2.5*math.log10(fnu)-48.6
     return magab
 
 
@@ -1358,41 +1366,28 @@ def Sed2Mag(sedarr, cssband):
     :param cssband: band name string;
     :return: the simulated AB magnitude.
     """
-    # MagSim_Zero = {
-    #     'NUV': -5.587045916455537,
-    #     'u': -5.87610594508142,
-    #     'g': -6.598954454598697,
-    #     'r': -6.107827330696978,
-    #     'i': -5.708583560010382,
-    #     'z': -4.76701043896702,
-    #     'y': -3.228666638129667,
-    #     'WNUV': -6.128099191529351,
-    #     'Wg': -7.016149730676382,
-    #     'Wi': -6.374759891127745
-    # }
-    # # MagSim_Zero, the zero point for the AB magnitudes (48.6 version), which are calculated through SedMag0 function.
-
     MagSim_Zero = {
-        'NUV': -5.670885607835359,
-        'u': -5.834081446972604,
-        'g': -6.608954454598695,
-        'r': -6.117827330696976,
-        'i': -5.722921744040363,
-        'z': -4.882211781056185,
-        'y': -3.468727307950779,
-        'WNUV': -6.163125111887389,
-        'Wg': -7.02614973067638,
-        'Wi': -6.393679982194428
+        'NUV': -14.339114392164639,
+        'u': -14.175918553027387,
+        'g': -13.401045545401303,
+        'r': -13.892172669303022,
+        'i': -14.287078255959628,
+        'z': -15.12778821894382,
+        'y': -16.54127269204922,
+        'WNUV': -13.846874888112609,
+        'Wg': -12.983850269323618,
+        'Wi': -13.616320017805577
     }
-    # MagSim_Zero, the zero point for the AB magnitudes (48.59 version), which are calculated through SedMag0 function.
+    # MagSim_Zero, the zero point here doesn't mean zero magnitude, just for convenience. They are calculated through SedMag0 function.
 
     thrput = np.loadtxt(thrghdir+cssband+'.txt')
     sedfine = interp(sedarr, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
     obserspec = sedfine
-    obserspec[:,1] = np.multiply(sedfine[:,1], thrputfine[:,1])*1e8
+    obserspec[:,1] = np.multiply(sedfine[:,1], thrputfine[:,1])
     Integ = np.trapz(obserspec[:,1], x=obserspec[:,0], dx=1.)
-    magsim = -2.5*math.log10(Integ) - MagSim_Zero[cssband]
+    # normunit = np.trapz(thrputfine[:,1]/obserspec[:,0]**2, x=obserspec[:,0], dx=1)*cvlcm*1e-8
+    magsim = -2.5*math.log10(Integ) + MagSim_Zero[cssband]
     return magsim
 
 
@@ -1409,10 +1404,75 @@ def SedMag0(cssband):
     """
     thrput = np.loadtxt(thrghdir+cssband+'.txt')
     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    ToBeInteg = thrputfine[:,1]/(thrputfine[:,0]*(1e-8))**2*cvlcm  # to be integrated
-    Integ = np.trapz(ToBeInteg, x=thrputfine[:,0], dx=1)
-    magsed0 = -2.5*math.log10(Integ)+48.59
+    ToBeInteg = thrputfine[:,1]/thrputfine[:,0]**2  # to be integrated
+    Integ = np.trapz(ToBeInteg, x=thrputfine[:,0], dx=1)*cvlcm*1e+8
+    magsed0 = 2.5*math.log10(Integ) - 48.6
     return magsed0
+
+
+# def Sed2Mag(sedarr, cssband):
+#     """
+#     Calculate simulated AB magnitude from SED and band-passes. In a way just as LePhare does.
+#     If throughputs changed, magnitude zero points should be calculated again.
+#     :param sedarr: source SED array, not necessory to be sampled evenly; in f_lambda(/A);
+#     :param cssband: band name string;
+#     :return: the simulated AB magnitude.
+#     """
+#     # MagSim_Zero = {
+#     #     'NUV': -102.86088560783537,
+#     #     'u': -103.02408144697262,
+#     #     'g': -103.7989544545987,
+#     #     'r': -103.30782733069698,
+#     #     'i': -102.91292174404037,
+#     #     'z': -102.07221178105618,
+#     #     'y': -100.65872730795078,
+#     #     'WNUV': -103.3531251118874,
+#     #     'Wg': -104.21614973067639,
+#     #     'Wi': -103.58367998219444
+#     # }
+#     # # MagSim_Zero, the zero point for the AB magnitudes (-48.6 version), which are calculated through SedMag0 function.
+
+#     MagSim_Zero = {
+#         'NUV': -5.670885607835359,
+#         'u': -5.834081446972604,
+#         'g': -6.608954454598695,
+#         'r': -6.117827330696976,
+#         'i': -5.722921744040363,
+#         'z': -4.882211781056185,
+#         'y': -3.468727307950779,
+#         'WNUV': -6.163125111887389,
+#         'Wg': -7.02614973067638,
+#         'Wi': -6.393679982194428
+#     }
+#     # MagSim_Zero, the zero point for the AB magnitudes (+48.6 version), which are calculated through SedMag0 function.
+
+#     thrput = np.loadtxt(thrghdir+cssband+'.txt')
+#     sedfine = interp(sedarr, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     obserspec = sedfine
+#     obserspec[:,1] = np.multiply(sedfine[:,1], thrputfine[:,1])*1e8
+#     Integ = np.trapz(obserspec[:,1], x=obserspec[:,0], dx=1.)
+#     magsim = -2.5*math.log10(Integ) - MagSim_Zero[cssband]
+#     return magsim
+
+
+# def SedMag0(cssband):
+#     """
+#     Calculate the zero point of the simalated AB magnitude for a band, assuming Fnu eq. 1 erg/s/A/Hz/cm2.
+#     Zero points can be obtained by running codes in ipython:
+#         > import csstpkg_phutil_mp_debug as csstpkg
+#         > for aband in ['NUV', 'u', 'g', 'r', 'i', 'z', 'y', 'WNUV', 'Wg', 'Wi']:
+#         >     print(csstpkg.SedMag0(aband))
+#         >
+#     :param cssband:
+#     :return: zero point of a cssband
+#     """
+#     thrput = np.loadtxt(thrghdir+cssband+'.txt')
+#     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     ToBeInteg = thrputfine[:,1]/(thrputfine[:,0]*(1e-8))**2*cvlcm  # to be integrated
+#     Integ = np.trapz(ToBeInteg, x=thrputfine[:,0], dx=1)
+#     magsed0 = -2.5*math.log10(Integ) + 48.6
+#     return magsed0
 
 
 def Ne2Fnu(NeDet, cssband, exptime, telarea):
@@ -1432,7 +1492,7 @@ def Ne2Fnu(NeDet, cssband, exptime, telarea):
 
 def MagAB_Zero(Gain, cssband, exptime, telarea):
     """
-    calculate AB magnitude zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
+    calculate AB magnitude zero point from 1 ADU in exptime(s), assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
     thrarr is not necessory to be sampled evenly.
     throughput array is in T_lambda(/A).
     """
@@ -1442,7 +1502,7 @@ def MagAB_Zero(Gain, cssband, exptime, telarea):
     ToBeInteg = thrfine[:,1]/thrfine[:,0]  # to be integrated
     Integ = np.trapz(ToBeInteg, x=thrfine[:,0], dx=1.)
     fnu0 = 1.0*Gain*hplk/exptime/telarea/Integ  # fnu in ergs/Hz/s/cm^2
-    magab0 = -2.5*math.log10(fnu0)-48.59
+    magab0 = -2.5*math.log10(fnu0)-48.6
     return magab0
 
 
@@ -1494,12 +1554,12 @@ def CRValTrans(fitsheader,iniPS,finPS):
     return fitsheader_fin
 
 
-def windcut(cssimg, cataline):
+def windcut(cssimg, cataline, stampsz):
     """
     Cut a window of the object as objwind
     :param cssimg: the image from which the window should be cutted from
-    :param posits: a tuple of the central position of the window
-    :param absizes: a tuple of the A,B size in pixel of the central source
+    :param cataline: a line of data catalog section
+    :param stampsz: times to max(a_rms,b_rms)
     :return: a window Object for the source
     """
     # theta = cataline['theta_image']
@@ -1507,7 +1567,7 @@ def windcut(cssimg, cataline):
     absizes = tuple(cataline['a_image_css', 'b_image_css'])
     # cutwidrad = int((a*math.cos(theta/180.*math.pi)+b*abs(math.sin(theta/180.*math.pi)))*5)
     # cutheirad = int((a*abs(math.sin(theta/180.*math.pi))+b*math.cos(theta/180.*math.pi))*5)
-    cutwid = int(max(absizes)*20)+1
+    cutwid = int(max(absizes)*stampsz)+1
     cuthei = cutwid
 
     if min(cutwid, cuthei) < 16:
@@ -1582,8 +1642,8 @@ def PlotKronrs(image, SourceObj):
 #     """
 #     calculate AB magnitude zero point with a throughput curve corresponds to energy, assuming f_nu is constantly as 1.
 #     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
-#     mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.59
-#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.59
+#     mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
 #     thrarr is not necessory to be sampled evenly.
 #     throughput array is in T_lambda(/A).
 #     """
@@ -1593,7 +1653,7 @@ def PlotKronrs(image, SourceObj):
 #     ToBeInteg = thrfine[:, 1] / (thrfine[:, 0] ** 2)  # to be integrated
 #     Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
 #     area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
-#     magab0 = 2.5 * math.log10(area) - 48.59
+#     magab0 = 2.5 * math.log10(area) - 48.6
 #     return magab0
 
 
@@ -1611,8 +1671,8 @@ def PlotKronrs(image, SourceObj):
 #     """
 #     calculate AB magnitude zero point with a throughput curve corresponds to number of photons, assuming f_nu is constantly as 1.
 #     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
-#     mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.59
-#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.59
+#     mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
 #     thrarr is not necessory to be sampled evenly.
 #     throughput array is in T_lambda(/A).
 #     """
@@ -1622,7 +1682,7 @@ def PlotKronrs(image, SourceObj):
 #     ToBeInteg = thrfine[:, 1] / thrfine[:, 0]  # to be integrated
 #     Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
 #     area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
-#     magab0 = 2.5 * math.log10(area) - 48.59
+#     magab0 = 2.5 * math.log10(area) - 48.6
 
 #     return magab0
 

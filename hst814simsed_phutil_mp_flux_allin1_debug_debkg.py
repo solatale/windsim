@@ -51,14 +51,14 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
     for procedi,cataline in enumerate(CataSect, 1):
 
-        if ((float(cataline['MOD_NUV_css'])<0) or (float(cataline['MOD_WNUV_css'])<0) or (float(cataline['MOD_NUV_css'])>50)):
-            continue
+        # if ((float(cataline['MOD_NUV_css'])<0) or (float(cataline['MOD_WNUV_css'])<0) or (float(cataline['MOD_NUV_css'])>50)):
+        #     continue
 
         np.random.seed()
 
         ident = str(cataline['IDENT'])
 
-        objwind = csstpkg.windcut(_CssImg, cataline)
+        objwind = csstpkg.windcut(_CssImg, cataline, StampSize)
 
         if objwind is None:
             if DebugTF == True:
@@ -379,6 +379,8 @@ if __name__ == '__main__':
     HstFileName = config['Hst2Css']['Hst814File']
     HstAsCssFile = config['Hst2Css']['HstAsCssFile']
     HstAsCssFileTest = config['Hst2Css']['HstAsCssFileTest']
+
+    StampSize = config.getfloat('Hst2Css','StampSize')
 
     if len(sys.argv)>1:
         HstFileName = HstFileName.replace(HstFileName[-12:-9], sys.argv[1])
