@@ -25,8 +25,10 @@ from astropy.io import fits
 import sep
 import configparser
 from astropy.stats import SigmaClip
+from astropy import stats
 from photutils import Background2D, MedianBackground
-
+from photutils import make_source_mask
+from astropy.stats import sigma_clipped_stats
 
 # imagewidth = 100.
 psfimgwidth = 10.
@@ -51,8 +53,10 @@ averfact = 0.5
 # ee = 0.85
 ee = 0.8
 
-fnu0w = 3.63e-23  # W/m^2/Hz
-fnu0 = 3.63e-20   # erg/cm^2/s/Hz
+fnu0w = 3.63e-23  # W/m^2/Hz        for 48.6
+fnu0  = 3.63e-20  # erg/cm^2/s/Hz   for 48.6
+# fnu0w = 3.6644e-23  # W/m^2/Hz        for 48.59
+# fnu0  = 3.6644e-20  # erg/cm^2/s/Hz   for 48.59
 
 psfrrms = 0.16722/0.074/2 # Rrms of psf in pix, =1.13
 
@@ -92,17 +96,17 @@ filt = {'NUV': './throughput/NUV.txt',
         'Wi': './throughput/Wi.txt',
         'wfc_F814W': './throughput/wfc_F814W.txt'}
 
-bandpos = {'NUV': [2480., 2877., 3260.],
+bandpos = {'NUV': [2480., 2866., 3260.],
             'v': [3510., 3825., 4170.],
-            'u': [3130., 3595., 4080.],
-            'g': [3910., 4798., 5610.],
-            'r': [5380., 6186., 7020.],
-            'i': [6770., 7642., 8540.],
-            'z': [8250., 9046., 11000.],
-            'y': [9140., 9654., 11000.],
+            'u': [3130., 3583., 4080.],
+            'g': [3910., 4750., 5610.],
+            'r': [5380., 6143., 7020.],
+            'i': [6770., 7600., 8540.],
+            'z': [8250., 9015., 11000.],
+            'y': [9140., 9664., 11000.],
             'WNUV': [2480., 3090., 3700.],
-            'Wg': [3500., 4950., 6400.],
-            'Wi': [6100., 7750., 9400.],
+            'Wg': [3500., 5016., 6400.],
+            'Wi': [6100., 7528., 9400.],
             'wfc_F814W': [6890., 7985., 9640.],
             'skmp_v': [3500., 3870, 4180]}
 
@@ -264,7 +268,7 @@ def interp(curve,xmin=1000.,xmax=12000.,dx=1.):
     return newarr
 
 
-def curvemultiply(curve1,curve2):
+def curvemultiply(curve1, curve2, dx=1):
     xmin1 = curve1[0,0]
     xmax1 = curve1[-1,0]
 
@@ -274,8 +278,8 @@ def curvemultiply(curve1,curve2):
     xmin12 = min(xmin1,xmin2)
     xmax12 = max(xmax1,xmax2)
 
-    newcurve1 = interp(curve1, xmin12, xmax12, dx=1.)
-    newcurve2 = interp(curve2, xmin12, xmax12, dx=1.)
+    newcurve1 = interp(curve1, xmin12, xmax12, dx=dx)
+    newcurve2 = interp(curve2, xmin12, xmax12, dx=dx)
 
     newcurve12y = newcurve1[:,1]*newcurve2[:,1]
     newcurve12x = newcurve1[:,0]
@@ -616,7 +620,6 @@ def DataArr2Fits(datarr, outfilename, headerobj=fits.Header()):
     hdu.writeto(outfilename, overwrite=True)
 
 
-
 class CentrlPhot:
     """
     A window image class contains properties extracted through the "sep" program.
@@ -648,78 +651,121 @@ class CentrlPhot:
 
 
     def Bkg(self, idb='NA', debug=False, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
+
         datahei, datawid = self.data.shape
         if max(datahei,datawid) > 32*2:
             back_size = 32
         else:
             back_size = 16
 
-        # Fit background using photutil.Background2D
-        sigma_clip = SigmaClip(sigma=3.)
-        bkg_estimator = MedianBackground()
-        if debug==True:
-            bkg_value = bkg_estimator.calc_background(self.data)
-            print(bkg_value)
-        try:
-            bkg0 = Background2D(self.data, back_size, filter_size=3, sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, edge_method='pad', exclude_percentile=100)
-        except Exception as e:
-            if debug==True:
-                print(idb, self.data)
-                plt.imshow(self.data)
-                plt.show()
-        # print(idb)
-        objimg = self.data - bkg0.background
-        obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-        seg0[seg0 > 0] = 1
-        objs = objimg * seg0
-        bkgimg = self.data - objs
-        self.bkg = Background2D(bkgimg, (back_size, back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
-
-        self.data_bkg = self.data - self.bkg.background
-        if debug==True:
-            print('Bkg.globalrms =', self.bkg.background_rms_median)
-
-        objects0, segarr0 = sep.extract(self.data_bkg, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-
-        # if debug == True:
-        #     plt.imshow(segarr0, interpolation='nearest', cmap='gray', origin='lower')
-        #     plt.title(idt+' extracted segments')
-        #     plt.show()
+        # making mask and background for image
+        self.bkg = stats.sigma_clip(self.data, sigma=2, cenfunc='median')
+        for iter_i in range(5):
+            # self.masksrc = make_source_mask(self.data, nsigma=2, npixels=10, dilate_size=9, sigclip_sigma=3, sigclip_iters=5)
+            self.bkg = stats.sigma_clip(self.bkg, sigma=2, cenfunc='median')
+            # self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data, sigma=3.0, mask=self.masksrc, cenfunc='median')
+            # self.data = self.data - self.bkgmean
+        self.data_bkg = self.data - np.mean(self.bkg)
+        # print(self.data_bkg)
+        self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data_bkg.data, sigma=3.0, mask=self.bkg.mask, cenfunc='median')
 
 
-        self.maskall = copy.deepcopy(segarr0)
-        # maskall is for background estimation, objects are set to 0, bkg is set to 1
-        self.maskall[self.maskall==0] = np.max(segarr0)+1
-        self.maskall[self.maskall<(np.max(segarr0)+1)] = 0
-        self.maskall[self.maskall>0] = 1
-        backstatarr = np.ma.array(self.data_bkg, mask=(self.maskall<1))
-
-        mean_backstat = np.mean(backstatarr)
-        self.bkg.background_median = self.bkg.background_median + mean_backstat
-        self.bkg.background = self.bkg.background + mean_backstat
-        self.data_bkg = self.data_bkg - mean_backstat
+        self.masksrc = make_source_mask(self.data_bkg, nsigma=2, npixels=10, dilate_size=9, sigclip_sigma=3, sigclip_iters=5)
+        # self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data, sigma=3.0, mask=self.masksrc, cenfunc='median')
+        # self.data_bkg = self.data - self.bkgmean
 
         if debug==True:
-            print('bkg rms =', self.bkg.background_rms_median)
-            vmin = np.min(self.bkg.background)
-            vmax = np.max(self.bkg.background)
-            plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-            plt.title(idb+' Refined Background')
+            print((self.bkgmean, self.bkgmedian, self.bkgstd))
+            plt.imshow(self.bkg, origin='lower')
             plt.show()
-        #
-        #     # plot background-subtracted image
-        #     fig, ax = plt.subplots()
-        #     m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
-        #     ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
-        #     # plot an ellipse for each object
-        #     for objecti in objects0:
-        #         kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
-        #         e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
-        #         e.set_facecolor('none')
-        #         e.set_edgecolor('red')
-        #         ax.add_artist(e)
-        #     plt.title(str(idb)+"'s detected objects")
+
+            plt.imshow(self.data_bkg, interpolation='nearest', cmap='viridis', origin='lower', vmin=self.bkgmean - 2*self.bkgstd, vmax=self.bkgmean + 2*self.bkgstd)
+            plt.title(idb+' Data-Background')
+            plt.show()
+
+        # masksrc2 = make_source_mask(self.data, nsigma=2, npixels=10, dilate_size=9)
+        # bkgmean2, bkgmedian2, bkgstd2 = sigma_clipped_stats(self.data, sigma=3, mask=masksrc2, cenfunc='median')
+        # if debug==True:
+            # print(bkgmean2, bkgmedian2, bkgstd2)
+            plt.figure()
+            plt.hist(self.data_bkg.flatten(), bins=200, range=(-200,1000))
+            plt.title(idb+' Histogram')
+            plt.show()
+            # print(' Refined background mean: ', bkgmean2)
+
+        # # Fit background using photutil.Background2D
+        # sigma_clip = SigmaClip(sigma=3.)
+        # bkg_estimator = MedianBackground()
+        # if debug==True:
+        #     bkg_value = bkg_estimator.calc_background(self.data)
+        #     print(bkg_value)
+        # try:
+        #     bkg0 = Background2D(self.data, back_size, filter_size=3, sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, edge_method='pad', exclude_percentile=100, mask=self.masksrc)
+        # except Exception as e:
+        #     if debug==True:
+        #         print(idb, self.data)
+        #         plt.imshow(self.data)
+        #         plt.show()
+        # if debug==True:        
+        #     plt.imshow(bkg0.background)
+        #     plt.title('2D Background')
         #     plt.show()
+        # # print(idb)
+        # objimg = self.data - bkg0.background
+        # obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+        # seg0[seg0 > 0] = 1
+        # objs = objimg * seg0
+        # bkgimg = self.data - objs
+        # if debug==True:
+        #     plt.imshow(bkgimg)
+        #     plt.show()
+        # self.bkg = Background2D(bkgimg, (back_size, back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
+
+        # self.data_bkg = self.data - self.bkg.background
+        # if debug==True:
+        #     print('Bkg.globalrms =', self.bkg.background_rms_median)
+
+        # objects0, segarr0 = sep.extract(self.data_bkg, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+
+        # # if debug == True:
+        # #     plt.imshow(segarr0, interpolation='nearest', cmap='gray', origin='lower')
+        # #     plt.title(idt+' extracted segments')
+        # #     plt.show()
+
+        self.maskall = self.masksrc
+        # self.maskall = copy.deepcopy(segarr0)
+        # # maskall is for background estimation, objects are set to 0, bkg is set to 1
+        # self.maskall[self.maskall==0] = np.max(segarr0)+1
+        # self.maskall[self.maskall<(np.max(segarr0)+1)] = 0
+        # self.maskall[self.maskall>0] = 1
+        # backstatarr = np.ma.array(self.data_bkg, mask=(self.maskall<1))
+
+        # mean_backstat = np.mean(backstatarr)
+        # self.bkg.background_median = self.bkg.background_median + mean_backstat
+        # self.bkg.background = self.bkg.background + mean_backstat
+        # self.data_bkg = self.data_bkg - mean_backstat
+
+        # if debug==True:
+        #     print('bkg rms =', self.bkg.background_rms_median)
+        #     vmin = np.min(self.bkg.background)
+        #     vmax = np.max(self.bkg.background)
+        #     plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+        #     plt.title(idb+' Refined Background')
+        #     plt.show()
+
+            # # plot background-subtracted image
+            # fig, ax = plt.subplots()
+            # m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
+            # ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
+            # # plot an ellipse for each object
+            # for objecti in objects0:
+            #     kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
+            #     e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
+            #     e.set_facecolor('none')
+            #     e.set_edgecolor('red')
+            #     ax.add_artist(e)
+            # plt.title(str(idb)+"'s detected objects")
+            # plt.show()
 
 
     def Centract(self, idt='NA', debug=False, sub_backgrd_bool=False, thresh=1.5, err=None, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
@@ -746,7 +792,7 @@ class CentrlPhot:
             self.dataphot = self.data_bkg
 
         try:
-            objects, segarr = sep.extract(self.dataphot, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+            objects, segarr = sep.extract(self.dataphot, thresh, err=self.bkgstd, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
         except Exception as e:
             self.centobj = np.nan
             objects = ''
@@ -768,7 +814,7 @@ class CentrlPhot:
                 self.centobj=objects[idx]
         else:
             if debug == True:
-                print('no object detected')
+                print('no object detected.')
             self.centobj = np.nan
 
         if self.centobj is not np.nan:
@@ -792,10 +838,14 @@ class CentrlPhot:
 
             self.dataphot_maskother = self.dataphot * self.mask_other # self.mark_centr
 
-            # if debug==True:
-            #     plt.imshow(self.mask_other, interpolation='nearest', cmap='gray', origin='lower')
-            #     plt.title(idt+"'s Mask")
-            #     plt.show()
+            if debug==True:
+                mean = np.median(self.dataphot_maskother)
+                stdev = np.std(self.dataphot_maskother)
+                vmin = mean - 2*stdev
+                vmax = mean + 2.5*stdev
+                plt.imshow(self.dataphot_maskother, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+                plt.title(idt+"'s Masked")
+                plt.show()
 
 
 
@@ -846,7 +896,7 @@ class CentrlPhot:
         if self.centflux <= 0:
             return np.nan, np.nan
         npix = math.pi*(self.centobj['a']*kphotpar*kronr)*(self.centobj['b']*kphotpar*kronr)
-        self.rsserr = np.sqrt(self.centflux+npix*self.bkg.background_rms_median**2)
+        self.rsserr = np.sqrt(self.centflux+npix*self.bkgstd**2)
         if debug==True:
             print('Npix for centrlphot error estimation: '+self.id, npix)
             print('Flux:',self.centflux,'RSSErr:', self.rsserr)
@@ -868,41 +918,58 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
     else:
         back_size = 16
 
-    # Background fitted by photutils.Background2D
-    sigma_clip = SigmaClip(sigma=3.)
-    bkg_estimator = MedianBackground()
-    bkg0 = Background2D(data, (back_size,back_size), filter_size=(3, 3),
-                        sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
-    objimg = data - bkg0.background
-    obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-    seg0[seg0>0] = 1
-    objs = objimg * seg0
-    bkgimg = data - objs
-    bkg = Background2D(bkgimg, (back_size,back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
-
-    data_sub = data - bkg.background
-    backstatarr_sa = np.ma.array(data_sub, mask=(stackphot.maskall < 1))
-    mean_backstat_sa = np.mean(backstatarr_sa)
-    bkg.background_median = bkg.background_median + mean_backstat_sa
-    bkg.background = bkg.background  + mean_backstat_sa
-
-    if debug==True:
-        print('bkg mean =', bkg.background_median)
-        backrefine_sa = np.ma.array(data_sub - mean_backstat_sa, mask=(stackphot.maskall < 1))
-        print('Refined bkg for phot:', np.mean(backrefine_sa))
-    #     print('bkg rms =', np.median(bkg.background_rms_median))
-    #     vmin = np.min(bkg.background)
-    #     vmax = np.max(bkg.background)
-    #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-    #     plt.title(annot+' Refined Background')
-    #     plt.show()
-
+    # making mask and background for image
+    # masksrc = make_source_mask(data, nsigma=2, npixels=10, dilate_size=9)
+    bkgmean, bkgmedian, bkgstd = sigma_clipped_stats(data, sigma=3.0, mask=stackphot.maskall, cenfunc='median')
+    
     if sub_backgrd_bool == True:
+        data_sub = data - bkgmean
+
+        backstatarr_sa = np.ma.array(data_sub, mask=stackphot.maskall)
+        mean_backstat_sa = np.mean(backstatarr_sa)
+
         dataphot = data_sub - mean_backstat_sa
     elif sub_backgrd_bool == False:
         dataphot = data
     else:
         print("'sub_backgrd_bool' type error:\nsub_backgrd_bool parameter is boolean.")
+
+
+    # # Background fitted by photutils.Background2D
+    # sigma_clip = SigmaClip(sigma=3.)
+    # bkg_estimator = MedianBackground()
+    # bkg0 = Background2D(data, (back_size,back_size), filter_size=(3, 3),
+    #                     sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
+    # objimg = data - bkg0.background
+    # obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
+    # seg0[seg0>0] = 1
+    # objs = objimg * seg0
+    # bkgimg = data - objs
+    # bkg = Background2D(bkgimg, (back_size,back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
+
+    # data_sub = data - bkg.background
+    # backstatarr_sa = np.ma.array(data_sub, mask=(stackphot.maskall < 1))
+    # mean_backstat_sa = np.mean(backstatarr_sa)
+    # bkg.background_median = bkg.background_median + mean_backstat_sa
+    # bkg.background = bkg.background  + mean_backstat_sa
+
+    # if debug==True:
+    #     print('bkg mean =', bkg.background_median)
+    #     backrefine_sa = np.ma.array(data_sub - mean_backstat_sa, mask=(stackphot.maskall < 1))
+    #     print('Refined bkg for phot:', np.mean(backrefine_sa))
+    # #     print('bkg rms =', np.median(bkg.background_rms_median))
+    # #     vmin = np.min(bkg.background)
+    # #     vmax = np.max(bkg.background)
+    # #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
+    # #     plt.title(annot+' Refined Background')
+    # #     plt.show()
+
+    # if sub_backgrd_bool == True:
+    #     dataphot = data_sub - mean_backstat_sa
+    # elif sub_backgrd_bool == False:
+    #     dataphot = data
+    # else:
+    #     print("'sub_backgrd_bool' type error:\nsub_backgrd_bool parameter is boolean.")
 
     if np.sum(mask_det) > 1:
         dataphot = dataphot * mask_det
@@ -938,16 +1005,16 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
         flux=0
     # Here, flux is ADU counts, not fnu
     npix = math.pi*(object_det['a']*kphotpar*kronr_det)*(object_det['b']*kphotpar*kronr_det)
-    rsserr = np.sqrt(flux+npix*bkg.background_rms_median**2)
+    rsserr = np.sqrt(flux+npix*bkgstd**2)
     # rsserr = np.sqrt(flux+npix*bkg.globalrms**2)
     if debug == True:
         # print(annot,'Flux:',flux,'FluxErr:', rsserr)
         print('Npix for rsserr estimation:',npix)
-        print(annot, 'bkg rms:', bkg.background_rms_median)
+        print(annot, 'bkg rms:', bkgstd)
     if rsserr == 0:
         return np.nan, np.nan
     else:
-        return flux, rsserr, npix, bkg.background_rms_median
+        return flux, rsserr, npix, bkgstd
 
 
 
@@ -1184,11 +1251,6 @@ def ImgConv(imgdata, kernldata, NDivide=1, NZoomIn=1, NZoomOut=1, SubPrefix='con
     return convimg
 
 
-def DataArr2Fits(datarr, outfilename, headerobj=fits.Header()):
-    # hdr = fits.Header()
-    hdu = fits.PrimaryHDU(data=datarr, header=headerobj)
-    hdu.writeto(outfilename, overwrite=True)
-
 
 def NoiseArr(shape, loc=0, scale=1, func='normal'):
     """
@@ -1207,13 +1269,30 @@ def NoiseArr(shape, loc=0, scale=1, func='normal'):
     return noisearr
 
 
+def pivot(cssband):
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=10)
+    lambeff = (np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=10)/np.trapz(thrputfine[:,1]/thrputfine[:,0]**2, x=thrputfine[:,0], dx=10))**0.5
+    return lambeff
+
+def lbmean_leph(cssband):
+    '''
+    Used as in Lephare for mean lambda: <lambda>
+    '''
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=10)
+    lambmean = np.trapz(thrputfine[:,1]*thrputfine[:,0], x=thrputfine[:,0], dx=10)/np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=10)
+    return lambmean
+
+
 def magab2fnu(magab):
     """
     \To convert AB magnitude to flux in f_nu
     :param magab: AB magnitude, scalar or an array
     :return: f_nu
     """
-    fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
+    fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz  for 48.6
+    # fnu = (3.66438e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz for 48.59
     return fnu
 
 
@@ -1224,7 +1303,8 @@ def magab2flam(magab, lambda0):
     :param lambda0: wavelength in angstrom, scalar or an array
     :return: f_lambda
     """
-    fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz
+    fnu = (3.63078e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz  for 48.6
+    # fnu = (3.66438e-20)*10**(-0.4*magab)  # in ergs/cm^2/s/Hz for 48.59
     flam = fnu*3e18/(lambda0**2)  # in ergs/cm^2/s/A
     return flam
 
@@ -1253,7 +1333,7 @@ def readsed(filename):
     return fitsed, flag
 
 
-def NeObser(sedarr, cssband, exptime, telarea):
+def NeObser(sedarr, cssband, exptime, telarea, flamarr, debug=False):
     """
     calculate number of electrons by multiplying SED and throughput curves.
     sedarr and thrarr are not necessory to be sampled evenly.
@@ -1269,6 +1349,13 @@ def NeObser(sedarr, cssband, exptime, telarea):
     ToBeInteg = obserspec[:,1]*obserspec[:,0]*(1e-8)  # to be integrated
     Integ = np.trapz(ToBeInteg, x=obserspec[:,0], dx=1.)  # integration per second*cm^2
     Ne_obs = Integ*exptime*telarea/hplk/cvlcm  # total electrons recieved
+    if debug==True:
+        plt.plot(sedarr[:,0], sedarr[:,1], 'b-')
+        plt.plot(thrput[:,0], thrput[:,1]/max(thrput[:,1])*np.median(sedarr[:,1]), 'g--')
+        plt.scatter(flamarr[:,0], flamarr[:,1], c=['red', 'blue'])  # red point for Model, blue point for the Simulated
+        plt.annotate(cssband, xy=(0.3,0.3), xycoords='figure fraction', color='k', horizontalalignment='center', fontSize=16)
+        plt.xlim((2000,10000))
+        plt.show()
     return Ne_obs
 
 
@@ -1288,6 +1375,123 @@ def Ne2MagAB(NeDet, cssband, exptime, telarea):
     return magab
 
 
+def Sed2Mag(sedarr, cssband):
+    """
+    Calculate simulated AB magnitude from SED and band-passes. In a way just as LePhare does.
+    If throughputs changed, magnitude zero points should be calculated again.
+    :param sedarr: source SED array, not necessory to be sampled evenly; in f_lambda(/A);
+    :param cssband: band name string;
+    :return: the simulated AB magnitude.
+    """
+    MagSim_Zero = {
+        'NUV': -14.339114392164639,
+        'u': -14.175918553027387,
+        'g': -13.401045545401303,
+        'r': -13.892172669303022,
+        'i': -14.287078255959628,
+        'z': -15.12778821894382,
+        'y': -16.54127269204922,
+        'WNUV': -13.846874888112609,
+        'Wg': -12.983850269323618,
+        'Wi': -13.616320017805577
+    }
+    # MagSim_Zero, the zero point here doesn't mean zero magnitude, just for convenience. They are calculated through SedMag0 function.
+
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    sedfine = interp(sedarr, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    obserspec = sedfine
+    obserspec[:,1] = np.multiply(sedfine[:,1], thrputfine[:,1])
+    Integ = np.trapz(obserspec[:,1], x=obserspec[:,0], dx=1.)
+    # normunit = np.trapz(thrputfine[:,1]/obserspec[:,0]**2, x=obserspec[:,0], dx=1)*cvlcm*1e-8
+    magsim = -2.5*math.log10(Integ) + MagSim_Zero[cssband]
+    return magsim
+
+
+def SedMag0(cssband):
+    """
+    Calculate the zero point of the simalated AB magnitude for a band, assuming Fnu eq. 1 erg/s/A/Hz/cm2.
+    Zero points can be obtained by running codes in ipython:
+        > import csstpkg_phutil_mp_debug as csstpkg
+        > for aband in ['NUV', 'u', 'g', 'r', 'i', 'z', 'y', 'WNUV', 'Wg', 'Wi']:
+        >     print(csstpkg.SedMag0(aband))
+        >
+    :param cssband:
+    :return: zero point of a cssband
+    """
+    thrput = np.loadtxt(thrghdir+cssband+'.txt')
+    thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+    ToBeInteg = thrputfine[:,1]/thrputfine[:,0]**2  # to be integrated
+    Integ = np.trapz(ToBeInteg, x=thrputfine[:,0], dx=1)*cvlcm*1e+8
+    magsed0 = 2.5*math.log10(Integ) - 48.6
+    return magsed0
+
+
+# def Sed2Mag(sedarr, cssband):
+#     """
+#     Calculate simulated AB magnitude from SED and band-passes. In a way just as LePhare does.
+#     If throughputs changed, magnitude zero points should be calculated again.
+#     :param sedarr: source SED array, not necessory to be sampled evenly; in f_lambda(/A);
+#     :param cssband: band name string;
+#     :return: the simulated AB magnitude.
+#     """
+#     # MagSim_Zero = {
+#     #     'NUV': -102.86088560783537,
+#     #     'u': -103.02408144697262,
+#     #     'g': -103.7989544545987,
+#     #     'r': -103.30782733069698,
+#     #     'i': -102.91292174404037,
+#     #     'z': -102.07221178105618,
+#     #     'y': -100.65872730795078,
+#     #     'WNUV': -103.3531251118874,
+#     #     'Wg': -104.21614973067639,
+#     #     'Wi': -103.58367998219444
+#     # }
+#     # # MagSim_Zero, the zero point for the AB magnitudes (-48.6 version), which are calculated through SedMag0 function.
+
+#     MagSim_Zero = {
+#         'NUV': -5.670885607835359,
+#         'u': -5.834081446972604,
+#         'g': -6.608954454598695,
+#         'r': -6.117827330696976,
+#         'i': -5.722921744040363,
+#         'z': -4.882211781056185,
+#         'y': -3.468727307950779,
+#         'WNUV': -6.163125111887389,
+#         'Wg': -7.02614973067638,
+#         'Wi': -6.393679982194428
+#     }
+#     # MagSim_Zero, the zero point for the AB magnitudes (+48.6 version), which are calculated through SedMag0 function.
+
+#     thrput = np.loadtxt(thrghdir+cssband+'.txt')
+#     sedfine = interp(sedarr, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     obserspec = sedfine
+#     obserspec[:,1] = np.multiply(sedfine[:,1], thrputfine[:,1])*1e8
+#     Integ = np.trapz(obserspec[:,1], x=obserspec[:,0], dx=1.)
+#     magsim = -2.5*math.log10(Integ) - MagSim_Zero[cssband]
+#     return magsim
+
+
+# def SedMag0(cssband):
+#     """
+#     Calculate the zero point of the simalated AB magnitude for a band, assuming Fnu eq. 1 erg/s/A/Hz/cm2.
+#     Zero points can be obtained by running codes in ipython:
+#         > import csstpkg_phutil_mp_debug as csstpkg
+#         > for aband in ['NUV', 'u', 'g', 'r', 'i', 'z', 'y', 'WNUV', 'Wg', 'Wi']:
+#         >     print(csstpkg.SedMag0(aband))
+#         >
+#     :param cssband:
+#     :return: zero point of a cssband
+#     """
+#     thrput = np.loadtxt(thrghdir+cssband+'.txt')
+#     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     ToBeInteg = thrputfine[:,1]/(thrputfine[:,0]*(1e-8))**2*cvlcm  # to be integrated
+#     Integ = np.trapz(ToBeInteg, x=thrputfine[:,0], dx=1)
+#     magsed0 = -2.5*math.log10(Integ) + 48.6
+#     return magsed0
+
+
 def Ne2Fnu(NeDet, cssband, exptime, telarea):
     """
     calculate flux in fnu from detected electron number, assuming f_nu is constantly.
@@ -1305,7 +1509,7 @@ def Ne2Fnu(NeDet, cssband, exptime, telarea):
 
 def MagAB_Zero(Gain, cssband, exptime, telarea):
     """
-    calculate AB magnitude zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
+    calculate AB magnitude zero point from 1 ADU in exptime(s), assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
     thrarr is not necessory to be sampled evenly.
     throughput array is in T_lambda(/A).
     """
@@ -1321,7 +1525,7 @@ def MagAB_Zero(Gain, cssband, exptime, telarea):
 
 def FluxAdu_Zero(Gain, cssband, exptime, telarea):
     """
-    calculate AB magnitude zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
+    calculate F_nu zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
     thrarr is not necessory to be sampled evenly.
     throughput array is in T_lambda(/A).
     """
@@ -1367,12 +1571,12 @@ def CRValTrans(fitsheader,iniPS,finPS):
     return fitsheader_fin
 
 
-def windcut(cssimg, cataline):
+def windcut(cssimg, cataline, stampsz):
     """
     Cut a window of the object as objwind
     :param cssimg: the image from which the window should be cutted from
-    :param posits: a tuple of the central position of the window
-    :param absizes: a tuple of the A,B size in pixel of the central source
+    :param cataline: a line of data catalog section
+    :param stampsz: times to max(a_rms,b_rms)
     :return: a window Object for the source
     """
     # theta = cataline['theta_image']
@@ -1380,20 +1584,29 @@ def windcut(cssimg, cataline):
     absizes = tuple(cataline['a_image_css', 'b_image_css'])
     # cutwidrad = int((a*math.cos(theta/180.*math.pi)+b*abs(math.sin(theta/180.*math.pi)))*5)
     # cutheirad = int((a*abs(math.sin(theta/180.*math.pi))+b*math.cos(theta/180.*math.pi))*5)
-    cutwid = int(max(absizes)*20)+1
+    cutwid = int(max(absizes)*stampsz)+1
     cuthei = cutwid
 
     if min(cutwid, cuthei) < 16:
     # size too small
         return None
 
-    objwind0 = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='trim')
-    # objwind0.data = objwind0.data.copy(order='C')
-    objwind0.data = objwind0.data.byteswap().newbyteorder()
-    windback = sep.Background(objwind0.data, bw=16, bh=16)
-    objwind = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='partial', fill_value=windback.globalback)
+    try:
+        objwind = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='strict')
+        return objwind
+    except Exception as e:
+        return None
 
-    return objwind
+
+    # objwind0 = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='trim')
+    # # objwind0.data = objwind0.data.copy(order='C')
+    # objwind0.data = objwind0.data.byteswap().newbyteorder()
+    # # windback = sep.Background(objwind0.data, bw=16, bh=16)
+    # masksrc = make_source_mask(objwind0.data, nsigma=2, npixels=10, dilate_size=9)
+    # bkgmean, bkgmedian, bkgstd = sigma_clipped_stats(objwind0.data, sigma=3.0, mask=masksrc)
+    # objwind = Cutout2D(cssimg, xyposits, (cuthei, cutwid), mode='partial', fill_value=bkgmean)
+
+    # return objwind
 
 
 def PlotObjWin(objwind, catline):
@@ -1442,62 +1655,60 @@ def PlotKronrs(image, SourceObj):
     plt.show()
 
 
-def sed2magab_energy_zero(cssband):
-    """
-    calculate AB magnitude zero point with a throughput curve corresponds to energy, assuming f_nu is constantly as 1.
-    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
-    mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
-    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
-    thrarr is not necessory to be sampled evenly.
-    throughput array is in T_lambda(/A).
-    """
-    # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
-    thrput = np.loadtxt(thrghdir + cssband + '.txt')
-    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    ToBeInteg = thrfine[:, 1] / (thrfine[:, 0] ** 2)  # to be integrated
-    Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
-    area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
-    magab0 = 2.5 * math.log10(area) - 48.6
-    return magab0
+# def sed2magab_energy_zero(cssband):
+#     """
+#     calculate AB magnitude zero point with a throughput curve corresponds to energy, assuming f_nu is constantly as 1.
+#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
+#     mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+#     thrarr is not necessory to be sampled evenly.
+#     throughput array is in T_lambda(/A).
+#     """
+#     # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
+#     thrput = np.loadtxt(thrghdir + cssband + '.txt')
+#     thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     ToBeInteg = thrfine[:, 1] / (thrfine[:, 0] ** 2)  # to be integrated
+#     Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+#     area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
+#     magab0 = 2.5 * math.log10(area) - 48.6
+#     return magab0
 
 
-def sed2magab_energy(modsed, cssband, magzero):
-    magzb0 = MagAB_Ener_Zero(cssband)
-    thrput = np.loadtxt(thrghdir + cssband + '.txt')
-    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    sedfine = interp(modsed, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    ToBeInteg = sedfine[:, 1] * thrfine[:, 1]
-    flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
-    magab = -2.5 * math.log10(flux) + magzero
-    return magab
+# def sed2magab_energy(modsed, cssband, magzero):
+#     thrput = np.loadtxt(thrghdir + cssband + '.txt')
+#     thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     sedfine = interp(modsed, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     ToBeInteg = sedfine[:, 1] * thrfine[:, 1]
+#     flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+#     magab = -2.5 * math.log10(flux) + magzero
+#     return magab
 
 
-def sed2magab_photon_zero(cssband):
-    """
-    calculate AB magnitude zero point with a throughput curve corresponds to number of photons, assuming f_nu is constantly as 1.
-    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
-    mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
-    mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
-    thrarr is not necessory to be sampled evenly.
-    throughput array is in T_lambda(/A).
-    """
-    # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
-    thrput = np.loadtxt(thrghdir + cssband + '.txt')
-    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    ToBeInteg = thrfine[:, 1] / thrfine[:, 0]  # to be integrated
-    Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
-    area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
-    magab0 = 2.5 * math.log10(area) - 48.6
+# def sed2magab_photon_zero(cssband):
+#     """
+#     calculate AB magnitude zero point with a throughput curve corresponds to number of photons, assuming f_nu is constantly as 1.
+#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)) + mag_AB_zero
+#     mag_AB_zero = -2.5*lg(Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+#     mag_AB = -2.5*lg(Integ(f_lambda*T_lambda*d_lambda)/Integ(1*c/lambda^2*T_lambda*d_lambda))-48.6
+#     thrarr is not necessory to be sampled evenly.
+#     throughput array is in T_lambda(/A).
+#     """
+#     # thrputdir = '/work/CSSOS/filter_improve/fromimg/windextract/throughput/'
+#     thrput = np.loadtxt(thrghdir + cssband + '.txt')
+#     thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     ToBeInteg = thrfine[:, 1] / thrfine[:, 0]  # to be integrated
+#     Integ = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+#     area = 1.0 * 3e18 * Integ  # fnu in ergs/Hz/s/cm^2
+#     magab0 = 2.5 * math.log10(area) - 48.6
 
-    return magab0
+#     return magab0
 
 
-def sed2magab_photon(modsed, cssband, magzero):
-    magzb0 = MagAB_Ener_Zero(cssband)
-    thrput = np.loadtxt(thrghdir + cssband + '.txt')
-    thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    sedfine = interp(modsed, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
-    ToBeInteg = sedfine[:, 1] * thrfine[:, 1] * thrfine[:, 0]
-    flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
-    magab = -2.5 * math.log10(flux) + magzero
-    return magab
+# def sed2magab_photon(modsed, cssband, magzero):
+#     thrput = np.loadtxt(thrghdir + cssband + '.txt')
+#     thrfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     sedfine = interp(modsed, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=1)
+#     ToBeInteg = sedfine[:, 1] * thrfine[:, 1] * thrfine[:, 0]
+#     flux = np.trapz(ToBeInteg, x=thrfine[:, 0], dx=1.)
+#     magab = -2.5 * math.log10(flux) + magzero
+#     return magab
