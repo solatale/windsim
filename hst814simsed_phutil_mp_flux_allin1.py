@@ -66,7 +66,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             continue
         # csstpkg.DataArr2Fits(objwind.data, ident+'_convwin.fits')
         objwinshape = objwind.shape
-        objwind.data = objwind.data * ExpCssFrm
+        # objwind.data = objwind.data * ExpCssFrm
 
         WinImgBands = np.zeros((len(cssbands), objwinshape[0], objwinshape[1]))  # 3-D array contains images of all the cssbands
 
@@ -118,6 +118,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         NeBands = []
         magsimorigs = []
         scalings = []
+        ObjWinPhot_DeBkg_Errs = []
 
         for cssband, numb in zip(cssbands, filtnumb):
 
@@ -162,7 +163,8 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             RNCssFrm = config.getfloat('Hst2Css', 'RNCss')
 
             # IdealImg = objwind.data * Scl2Sed + SkyLevel + DarkLevel  # e-
-            IdealImg = ObjWinPhot_DeBkg.data_bkg * Scl2Sed # + SkyLevel + DarkLevel  # e-
+            IdealImg = ObjWinPhot_DeBkg.data_bkg * Scl2Sed # + SkyLevel + DarkLevel  # e-/s
+            ObjWinPhot_DeBkg_Errs.append(ObjWinPhot_DeBkg.bkgstd * Scl2Sed)
 
             if DebugTF == True:
                 # csstpkg.DataArr2Fits(IdealImg/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
@@ -195,7 +197,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 print('Added Noise '+cssband+' band: ',Noise2Add)
 
             ImgPoiss = copy.deepcopy(IdealImg)
-            ImgPoiss[ImgPoiss>0] = np.random.poisson(lam=IdealImg[IdealImg>0], size=IdealImg[IdealImg>0].shape)
+            ImgPoiss[ImgPoiss>0] = np.random.poisson(lam=IdealImg[IdealImg>0]*ExpCssFrm, size=IdealImg[IdealImg>0].shape)/ExpCssFrm
             NoisNormImg = csstpkg.NoiseArr(objwinshape, loc=0, scale=Noise2Add, func='normal')
 
             # DigitizeImg = IdealImg/Gain
@@ -245,51 +247,16 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 plt.title(' '.join([cssband, 'simul image']))
                 plt.show()
 
-
-            # SameApObj = csstpkg.CentrlPhot(WinImgBands[bandi, ::], id=ident+' '+cssband+' band CentralExtract')
-            # SameApObj.Bkg(idb=ident+' '+cssband+' band CentralExtract', debug=DebugTF, thresh=1.5, minarea=10)
-            # SameApObj.Centract(idt=ident+' '+cssband+' band CentralExtract', thresh=1.2, minarea=10, deblend_nthresh=32, deblend_cont=0.1, debug=DebugTF, sub_backgrd_bool=False)
-            # if SameApObj.centobj is np.nan:
-            #     if DebugTF == True:
-            #         print('No central object on simulated image.')
-            #
-            #     AduObsertmp, ErrAduObstmp, npixtmp, bkgrmstmp = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot, StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10, sub_backgrd_bool=False)
-            #
-            #     # ErrAduTot = (npixtmp*bkgrmstmp**2 + npixtmp*(noisebkg_conv * scalings[bandi]) ** 2) ** 0.5
-            #     ErrAduTot = bkgrmstmp*npixtmp**0.5
-            #     # FluxMsr = 1.2*10*bkgrmstmp*fluxadu_zeros[bandi]
-            #     FluxMsr = 1*fluxadu_zeros[bandi]
-            #     FLuxErr = ErrAduTot*fluxadu_zeros[bandi]
-            #     #csstpkg.Ne2Fnu(ErrAduTot*Gain,cssband,expcss,TelArea)
-            #     SNR = FluxMsr/FLuxErr
-            #
-            # else:
             AduObser, ErrAduObs, npix, bkgrms = csstpkg.septractSameAp(WinImgBands[bandi, ::], StackPhot, StackPhot.centobj, StackPhot.kronr, mask_det=StackPhot.mask_other, debug=DebugTF, annot=cssband+'_cssos', thresh=1.2, minarea=10, sub_backgrd_bool=False)
             # print(scalings)
-            # ErrAduTot = (ErrAduObs ** 2 + npix*(noisebkg_conv * scalings[bandi]) ** 2) ** 0.5
-            ErrAduTot = ErrAduObs
+            ErrAduTot = np.sqrt(ErrAduObs ** 2 + npix*(noisebkg_conv * scalings[bandi]) ** 2)
+            # ErrAduTot = np.sqrt(ErrAduObs**2+npix*ObjWinPhot_DeBkg_Errs[bandi]**2)
 
             if AduObser > 0:
                 SNR = AduObser / ErrAduTot
                 # FluxMsr = csstpkg.Ne2Fnu(AduObser*Gain,cssband,expcss,TelArea)
                 FluxMsr = AduObser * fluxadu_zeros[bandi]
                 FLuxErr = ErrAduTot * fluxadu_zeros[bandi]  # FluxMsr/SNR
-
-                # # For sources have flux which is much greater/less than model:
-                # if (cssband=='r') and (AduObser*Gain < 0.7*NeBands[bandi]):
-                #     # FluxMsr = 0
-                #     # FLuxErr = ErrAduTot*fluxadu_zeros[bandi]
-                #     # SNR = -70
-                #     wrongfluxflag = 1
-                #     break
-                # elif (cssband=='r') and (AduObser*Gain > 1.3*NeBands[bandi]):
-                #     # FluxMsr = 0
-                #     # FLuxErr = ErrAduTot * fluxadu_zeros[bandi]
-                #     # SNR = -130
-                #     wrongfluxflag = 1
-                #     break
-                # else:
-                #     pass
 
             else:
                 FluxMsr = 0

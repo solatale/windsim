@@ -661,18 +661,14 @@ class CentrlPhot:
         # making mask and background for image
         self.bkg = stats.sigma_clip(self.data, sigma=2, cenfunc='median')
         for iter_i in range(5):
-            # self.masksrc = make_source_mask(self.data, nsigma=2, npixels=10, dilate_size=9, sigclip_sigma=3, sigclip_iters=5)
             self.bkg = stats.sigma_clip(self.bkg, sigma=2, cenfunc='median')
-            # self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data, sigma=3.0, mask=self.masksrc, cenfunc='median')
-            # self.data = self.data - self.bkgmean
+
         self.data_bkg = self.data - np.mean(self.bkg)
         # print(self.data_bkg)
         self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data_bkg.data, sigma=3.0, mask=self.bkg.mask, cenfunc='median')
 
-
         self.masksrc = make_source_mask(self.data_bkg, nsigma=2, npixels=10, dilate_size=9, sigclip_sigma=3, sigclip_iters=5)
-        # self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data, sigma=3.0, mask=self.masksrc, cenfunc='median')
-        # self.data_bkg = self.data - self.bkgmean
+        self.maskall = self.masksrc
 
         if debug==True:
             print((self.bkgmean, self.bkgmedian, self.bkgstd))
@@ -683,89 +679,10 @@ class CentrlPhot:
             plt.title(idb+' Data-Background')
             plt.show()
 
-        # masksrc2 = make_source_mask(self.data, nsigma=2, npixels=10, dilate_size=9)
-        # bkgmean2, bkgmedian2, bkgstd2 = sigma_clipped_stats(self.data, sigma=3, mask=masksrc2, cenfunc='median')
-        # if debug==True:
-            # print(bkgmean2, bkgmedian2, bkgstd2)
             plt.figure()
-            plt.hist(self.data_bkg.flatten(), bins=200, range=(-200,1000))
+            plt.hist(self.data_bkg.flatten(), bins=200, range=(-2,10))
             plt.title(idb+' Histogram')
             plt.show()
-            # print(' Refined background mean: ', bkgmean2)
-
-        # # Fit background using photutil.Background2D
-        # sigma_clip = SigmaClip(sigma=3.)
-        # bkg_estimator = MedianBackground()
-        # if debug==True:
-        #     bkg_value = bkg_estimator.calc_background(self.data)
-        #     print(bkg_value)
-        # try:
-        #     bkg0 = Background2D(self.data, back_size, filter_size=3, sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, edge_method='pad', exclude_percentile=100, mask=self.masksrc)
-        # except Exception as e:
-        #     if debug==True:
-        #         print(idb, self.data)
-        #         plt.imshow(self.data)
-        #         plt.show()
-        # if debug==True:        
-        #     plt.imshow(bkg0.background)
-        #     plt.title('2D Background')
-        #     plt.show()
-        # # print(idb)
-        # objimg = self.data - bkg0.background
-        # obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-        # seg0[seg0 > 0] = 1
-        # objs = objimg * seg0
-        # bkgimg = self.data - objs
-        # if debug==True:
-        #     plt.imshow(bkgimg)
-        #     plt.show()
-        # self.bkg = Background2D(bkgimg, (back_size, back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
-
-        # self.data_bkg = self.data - self.bkg.background
-        # if debug==True:
-        #     print('Bkg.globalrms =', self.bkg.background_rms_median)
-
-        # objects0, segarr0 = sep.extract(self.data_bkg, thresh, err=self.bkg.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-
-        # # if debug == True:
-        # #     plt.imshow(segarr0, interpolation='nearest', cmap='gray', origin='lower')
-        # #     plt.title(idt+' extracted segments')
-        # #     plt.show()
-
-        self.maskall = self.masksrc
-        # self.maskall = copy.deepcopy(segarr0)
-        # # maskall is for background estimation, objects are set to 0, bkg is set to 1
-        # self.maskall[self.maskall==0] = np.max(segarr0)+1
-        # self.maskall[self.maskall<(np.max(segarr0)+1)] = 0
-        # self.maskall[self.maskall>0] = 1
-        # backstatarr = np.ma.array(self.data_bkg, mask=(self.maskall<1))
-
-        # mean_backstat = np.mean(backstatarr)
-        # self.bkg.background_median = self.bkg.background_median + mean_backstat
-        # self.bkg.background = self.bkg.background + mean_backstat
-        # self.data_bkg = self.data_bkg - mean_backstat
-
-        # if debug==True:
-        #     print('bkg rms =', self.bkg.background_rms_median)
-        #     vmin = np.min(self.bkg.background)
-        #     vmax = np.max(self.bkg.background)
-        #     plt.imshow(self.bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-        #     plt.title(idb+' Refined Background')
-        #     plt.show()
-
-            # # plot background-subtracted image
-            # fig, ax = plt.subplots()
-            # m, s = np.mean(self.data_bkg), np.std(self.data_bkg)
-            # ax.imshow(self.data_bkg, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
-            # # plot an ellipse for each object
-            # for objecti in objects0:
-            #     kronrdets= sep.kron_radius(self.data_bkg, objecti['x'], objecti['y'], objecti['a'], objecti['b'], objecti['theta'], 4.0)[0]
-            #     e = Ellipse(xy=(objecti['x'], objecti['y']), width=objecti['a']*kronrdets*kphotpar*2, height=objecti['b']*kronrdets*kphotpar*2, angle=objecti['theta'] * 180. / np.pi)
-            #     e.set_facecolor('none')
-            #     e.set_edgecolor('red')
-            #     ax.add_artist(e)
-            # plt.title(str(idb)+"'s detected objects")
-            # plt.show()
 
 
     def Centract(self, idt='NA', debug=False, sub_backgrd_bool=False, thresh=1.5, err=None, minarea=10, deblend_nthresh=32, deblend_cont=0.005, clean_param=1.0):
@@ -924,66 +841,16 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
     
     if sub_backgrd_bool == True:
         data_sub = data - bkgmean
-
         backstatarr_sa = np.ma.array(data_sub, mask=stackphot.maskall)
         mean_backstat_sa = np.mean(backstatarr_sa)
-
         dataphot = data_sub - mean_backstat_sa
     elif sub_backgrd_bool == False:
         dataphot = data
     else:
         print("'sub_backgrd_bool' type error:\nsub_backgrd_bool parameter is boolean.")
 
-
-    # # Background fitted by photutils.Background2D
-    # sigma_clip = SigmaClip(sigma=3.)
-    # bkg_estimator = MedianBackground()
-    # bkg0 = Background2D(data, (back_size,back_size), filter_size=(3, 3),
-    #                     sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
-    # objimg = data - bkg0.background
-    # obj0, seg0 = sep.extract(objimg, thresh, err=bkg0.background_rms_median, minarea=minarea, deblend_nthresh=deblend_nthresh, deblend_cont=deblend_cont, clean_param=clean_param, segmentation_map=True)
-    # seg0[seg0>0] = 1
-    # objs = objimg * seg0
-    # bkgimg = data - objs
-    # bkg = Background2D(bkgimg, (back_size,back_size), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator, exclude_percentile=100)
-
-    # data_sub = data - bkg.background
-    # backstatarr_sa = np.ma.array(data_sub, mask=(stackphot.maskall < 1))
-    # mean_backstat_sa = np.mean(backstatarr_sa)
-    # bkg.background_median = bkg.background_median + mean_backstat_sa
-    # bkg.background = bkg.background  + mean_backstat_sa
-
-    # if debug==True:
-    #     print('bkg mean =', bkg.background_median)
-    #     backrefine_sa = np.ma.array(data_sub - mean_backstat_sa, mask=(stackphot.maskall < 1))
-    #     print('Refined bkg for phot:', np.mean(backrefine_sa))
-    # #     print('bkg rms =', np.median(bkg.background_rms_median))
-    # #     vmin = np.min(bkg.background)
-    # #     vmax = np.max(bkg.background)
-    # #     plt.imshow(bkg.background, interpolation='nearest', cmap='gray', origin='lower', vmin=vmin, vmax=vmax)
-    # #     plt.title(annot+' Refined Background')
-    # #     plt.show()
-
-    # if sub_backgrd_bool == True:
-    #     dataphot = data_sub - mean_backstat_sa
-    # elif sub_backgrd_bool == False:
-    #     dataphot = data
-    # else:
-    #     print("'sub_backgrd_bool' type error:\nsub_backgrd_bool parameter is boolean.")
-
     if np.sum(mask_det) > 1:
         dataphot = dataphot * mask_det
-
-        # centmasked = copy.deepcopy(mask_det)
-        # print(backstatarr_sa)
-        # if debug==True:
-        #     backstatarr_sa = np.ma.array(dataphot, mask=(mask_det+stackphot.mark_centr)>1.01)
-        #     print('Mean data_sub background:', np.mean(backstatarr_sa))
-        #     backstatarr_sa[backstatarr_sa.mask]=0
-        #     m, s = np.mean(backstatarr_sa), np.std(backstatarr_sa)
-        #     plt.imshow(backstatarr_sa, interpolation='nearest', cmap='gray', vmin=m - s, vmax=m + 2*s, origin='lower')
-        #     plt.show()
-
 
     if debug==True:
         # Plot Cleaned object
@@ -999,23 +866,22 @@ def septractSameAp(dataorig, stackphot, object_det, kronr_det, mask_det=0, debug
         plt.show()
 
     # kphot_autopar = np.array([kphotpar])
-    flux, fluxerr, flag = sep.sum_ellipse(dataphot, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], kphotpar * kronr_det, subpix=5) #, mask=mask_det ,maskthresh=0)
-    # flux = np.sum(dataphot)
-    if flux < 0:
-        flux=0
-    # Here, flux is ADU counts, not fnu
+    aduobser, aduobsererr, flag = sep.sum_ellipse(dataphot, object_det['x'], object_det['y'], object_det['a'], object_det['b'], object_det['theta'], kphotpar * kronr_det, subpix=5) #, mask=mask_det ,maskthresh=0)
+    # aduobser = np.sum(dataphot)
+    if aduobser < 0:
+        aduobser=0
+    # Here, aduobser is ADU counts
     npix = math.pi*(object_det['a']*kphotpar*kronr_det)*(object_det['b']*kphotpar*kronr_det)
-    rsserr = np.sqrt(flux+npix*bkgstd**2)
-    # rsserr = np.sqrt(flux+npix*bkg.globalrms**2)
+    rsserr = np.sqrt(aduobser+npix*bkgstd**2)
+    # rsserr = np.sqrt(aduobser+npix*bkg.globalrms**2)
     if debug == True:
-        # print(annot,'Flux:',flux,'FluxErr:', rsserr)
+        # print(annot,'AduObser:',aduobser,'AduErr:', rsserr)
         print('Npix for rsserr estimation:',npix)
         print(annot, 'bkg rms:', bkgstd)
     if rsserr == 0:
         return np.nan, np.nan
     else:
-        return flux, rsserr, npix, bkgstd
-
+        return aduobser, rsserr, npix, bkgstd
 
 
 def CRRatio(cssosband='i', nread=2, hstband='wfc_F814W', mag814=25, magcss=25):
