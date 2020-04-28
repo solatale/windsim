@@ -19,19 +19,19 @@ if schemecode == '424':
     # filtnumb = [4, 2, 2, 2, 2, 2, 4]
     totnbands = 7
 elif schemecode == '222':
-    cssbands = ['NUV_2', 'u', 'g', 'r', 'i', 'z', 'WNUV', 'Wg', 'Wi']
+    cssbands = ['NUV2', 'u', 'g', 'r', 'i', 'z', 'WNUV', 'Wg', 'Wi']
     # filtnumb = [2, 2, 2, 2, 2, 2, 2, 2, 2]
     totnbands = 9
 elif schemecode == '4262':
-    cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z']
+    cssbands = ['NUV', 'u', 'g', 'r', 'i6', 'z']
     # filtnumb = [4, 2, 2, 2, 6, 2]
     totnbands = 6
 else:
     print("Please asign a scheme code, which should be '424', '222', or '4262'.")
     sys.exit()
 
-snrthr_combine = 10
-snrthr_single = 0
+snrthr = 10
+snrthr_single = 1
 
 simcat0 = ascii.read(simcatname)
 
@@ -44,15 +44,15 @@ simcat0 = ascii.read(simcatname)
 # print(simcat)
 simcat = simcat0.copy()
 del simcat[:]
-
+print(simcat0)
 for i,aline in enumerate(simcat0):
     # if (((aline['SNR_g']>=5) and (aline['SNR_r']>=5) and (aline['SNR_i']>=5) and (aline['SNR_z']>=5))
-    if (((aline['SNR_r']**2+aline['SNR_i']**2)>=100) \
+    if (((aline['SNR_r']**2+aline['SNR_i']**2)>=snrthr) \
             # or (aline['SNR_r']>=7 and (aline['SNR_i']>=7)) 
-            or (aline['SNR_g']>=10) or (aline['SNR_r']>=10) \
-            or (aline['SNR_i']>=10) or (aline['SNR_z']>=10) \
-            or ((aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr_combine**2)):
-            # and (aline['SNR_NUV_2']>3)):
+            or (aline['SNR_g']>=snrthr) or (aline['SNR_r']>=snrthr) \
+            or (aline['SNR_i']>=snrthr) or (aline['SNR_z']>=snrthr) \
+            or ((aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr**2)):
+            # and (aline['SNR_NUV2']>3)):
         simcat.add_row(aline)
 
 print(len(simcat), len(simcat0))

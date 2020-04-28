@@ -214,8 +214,8 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         if DebugTF == True:
             print('Stack all bands and detect objects:')
 
-        # WinImgStack = WinImgBands[1:8,::].sum(0)
-        WinImgStack = WinImgBands[0:7,::].sum(0)
+        WinImgStack = WinImgBands[1:8,::].sum(0)
+        # WinImgStack = WinImgBands[0:7,::].sum(0)
         # print(WinImgStack.shape)
         # AduStack, ErrAduStack, ObjectStack, KronRStack, MaskStack = septract(WinImgStack, id=str(outcatrowi[0])+" Stack", debug=DebugTF, thresh=1.2, minarea=10)
         StackPhot = csstpkg.CentrlPhot(WinImgStack, id=ident + " Stack")
@@ -445,23 +445,6 @@ if __name__ == '__main__':
             # schemecode = sys.argv[2]
             # print('Scheme '+schemecode)
 
-            # for scheme_i in range(1):
-
-            # if scheme_i == 0:
-            #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
-            #     filtnumb = [4, 2, 2, 2, 2, 2, 4]
-            #     schemecode = '424'
-            # elif scheme_i == 1:
-            #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'WNUV', 'Wg', 'Wi']
-            #     filtnumb = [2, 2, 2, 2, 2, 2, 2, 2, 2]
-            #     # cssbands = ['g','r','i','z','WNUV', 'Wg', 'Wi']
-            #     # filtnumb = [2,2,2,2,2,2,2]
-            #     schemecode = '222'
-            # elif scheme_i == 2:
-            #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z']
-            #     filtnumb = [4, 2, 2, 2, 6, 2]
-            #     schemecode = '4262'
-
             # if schemecode == '424':
             #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
             #     filtnumb = [4, 2, 2, 2, 2, 2, 4]
@@ -472,17 +455,16 @@ if __name__ == '__main__':
             #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z']
             #     filtnumb = [4, 2, 2, 2, 6, 2]
 
-            cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
-            filtnumb = [    4,   2,   2,   2,   2,   2,   4]
+            # cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
+            # filtnumb = [    4,   2,   2,   2,   2,   2,   4]
 
             # cssbands = ['NUV', 'NUV', 'u', 'g', 'r', 'i', 'z', 'y', 'WNUV', 'Wg', 'Wi']
             # filtnumb = [    2,     4,   2,   2,   2,   2,   2,   4,      2,    2,    2]
 
-            # cssbands = config.get('Hst2Css', 'CssBands').split(',')
-            # filtnumb_str = config.get('Hst2Css', 'FiltNumb').split(',')
-            # filtnumb = [int(numb) for numb in filtnumb_str]
+            cssbands = config.get('Hst2Css', 'CssBands').split(',')
+            filtnumb_str = config.get('Hst2Css', 'FiltNumb').split(',')
+            filtnumb = [int(numb) for numb in filtnumb_str]
 
-            # magab_zeros = []
             fluxadu_zeros = []
 
             for cssband, numb in zip(cssbands, filtnumb):
@@ -504,14 +486,18 @@ if __name__ == '__main__':
                 os.remove(OutCssCatName)
             OutCssCat = open(OutCssCatName, mode='w')
             # OutCssCat.write('# '+' '.join(colnames)+'\n')
-            headcomment = '# ID Z_BEST MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV ' \
-                        'MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i ' \
-                        'FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y RrmsSimAS\n'
+            # headcomment = '# ID Z_BEST MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV ' \
+            #             'MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i ' \
+            #             'FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y RrmsSimAS\n'
+            # if ('WNUV' in cssband) and ('y' not in cssband):
+            #     headcomment = '# ID Z_BEST MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV ' \
+            #             'MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i ' \
+            #             'FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_WNUV FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_Wg FluxSim_Wg ErrFlux_Wg SNR_Wg MOD_Wi FluxSim_Wi ErrFlux_Wi SNR_Wi RrmsSimAS\n'
             # RrmsSimAS is in arcsec
-            # headcomment = '# ID Z_BEST MOD_NUV_2 FluxSim_NUV_2 ErrFlux_NUV_2 SNR_NUV_2 MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV ' \
-            #               'MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i ' \
-            #               'FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y MOD_WNUV ' \
-            #               'FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_Wg FluxSim_Wg ErrFlux_Wg SNR_Wg MOD_Wi FluxSim_Wi ErrFlux_Wi SNR_Wi\n'
+            headcomment = '# ID Z_BEST MOD_NUV2 FluxSim_NUV2 ErrFlux_NUV2 SNR_NUV2 MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV ' \
+                          'MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i ' \
+                          'FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y MOD_WNUV ' \
+                          'FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_Wg FluxSim_Wg ErrFlux_Wg SNR_Wg MOD_Wi FluxSim_Wi ErrFlux_Wi SNR_Wi MOD_i6 FluxSim_i6 ErrFlux_i6 SNR_i6 RrmsSimAS\n'
             OutCssCat.write(headcomment)
 
             OutCssCat.flush()

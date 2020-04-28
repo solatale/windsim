@@ -125,4 +125,4 @@ ax.annotate('$f_c = $'+'{0:7.4%}'.format(fc),
 datetag=dt.date.today().strftime('%m%d')
 plt.savefig(sys.argv[1].split('.')[0]+'.png', format='png', dpi=300)
 print('Figure '+sys.argv[1].split('.')[0]+'.png'+' saved.')
-plt.show()
+# plt.show()
