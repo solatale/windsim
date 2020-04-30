@@ -49,14 +49,14 @@ mergecata = open(sys.argv[2],'w')
 for i,afile in enumerate(files):
     if i == 0:
         # os.system("cp "+afile+" "+sys.argv[2])
-        print(afile)
+        # print(afile)
         with open(afile,'r') as readafile:
             content=readafile.read()
         if content is not '':
             mergecata.write(content)
     else:
         with open(afile,'r') as readafile:
-            print(afile)
+            # print(afile)
             readafile.readline()
             content = readafile.read()
         if content is not '':
@@ -64,4 +64,4 @@ for i,afile in enumerate(files):
 
 mergecata.close()
 
-print('\n'+sys.argv[2])
+print('\n---> '+sys.argv[2])

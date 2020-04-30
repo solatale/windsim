@@ -136,7 +136,7 @@ def lambda_mean(curvarr, xmin=2000, xmax=11000, dx=1, pivot=False):
     if pivot == True:
         integ_Tlamb = np.trapz(curvefine[:,1], curvefine[:,0], dx=1)
         integ_Tovlamb2 = np.trapz(curvefine[:,1]/curvefine[:,0]**2, curvefine[:,0], dx=1)
-        return (integ_Tlamb/integ_Tovlamb2)**0.5
+        return np.sqrt(integ_Tlamb/integ_Tovlamb2)
     elif pivot == False:
         integlambTlamb = np.trapz(curvefine[:,0]*curvefine[:,1], curvefine[:,0], dx=1)
         meanlamb = integlambTlamb/np.trapz(curvefine[:,1], curvefine[:,0], dx=1)
@@ -163,7 +163,7 @@ def cr2snr(crs, texp=texp0*nread0, tread=tread0*nread0, npix=npix80, bsky=0.1, b
         # print 'crt 300s & sample: ', crs * texp, cr300poiss
     else:
         cr300 = crs*texp
-    snrcal = cr300/(cr300+npix*(bsky+bdet+bscat)*texp+bdet*tread*npix+npix*nread*rn**2)**0.5
+    snrcal = cr300/np.sqrt(cr300+npix*(bsky+bdet+bscat)*texp+bdet*tread*npix+npix*nread*rn**2)
     # print 'area:',npix
     return snrcal
 
@@ -719,7 +719,7 @@ class CentrlPhot:
             objxy = np.array([objects['y'], objects['x']]).transpose()
             # print(objxy)
             tocenter = np.abs(objxy-(np.array(self.data_bkg.shape)/2.+0.5))
-            distances = (tocenter[:,0]**2+tocenter[:,1]**2)**0.5
+            distances = np.sqrt(tocenter[:,0]**2+tocenter[:,1]**2)
             if debug == True:
                 print('Distances to center: ',distances)
             if np.min(distances) > 4:
@@ -1138,7 +1138,7 @@ def NoiseArr(shape, loc=0, scale=1, func='normal'):
 def pivot(cssband):
     thrput = np.loadtxt(thrghdir+cssband+'.txt')
     thrputfine = interp(thrput, xmin=bandpos[cssband][0], xmax=bandpos[cssband][2], dx=10)
-    lambeff = (np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=10)/np.trapz(thrputfine[:,1]/thrputfine[:,0]**2, x=thrputfine[:,0], dx=10))**0.5
+    lambeff = np.sqrt(np.trapz(thrputfine[:,1], x=thrputfine[:,0], dx=10)/np.trapz(thrputfine[:,1]/thrputfine[:,0]**2, x=thrputfine[:,0], dx=10))
     return lambeff
 
 def lbmean_leph(cssband):

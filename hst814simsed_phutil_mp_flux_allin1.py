@@ -136,6 +136,8 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             delmag = float(cataline['MOD_' + cssband + '_css']) - magaband0
             # magsimorig_band = magaband0 - delmag
             NeABand = NeABand0*10**(-0.4*delmag)
+            # Do poisson randomize:
+            NeABand = np.random.poisson(lam=NeABand*ExpCssFrm)/ExpCssFrm
 
             NeBands.append(NeABand)
 
@@ -187,21 +189,23 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
                 print(' '.join(['Model electrons:', str(NeABand), '\nTesting Photometry After scaling:', str(NeConv)]))
 
-            BkgNoiseTot = (SkyLevel + DarkLevel + RNCssFrm**2*numb)**0.5
+            BkgNoiseTot = np.sqrt(SkyLevel + DarkLevel + RNCssFrm**2*numb)
             if BkgNoiseTot > noisebkg_conv*Scl2Sed:
-                Noise2Add = (BkgNoiseTot**2 - (noisebkg_conv*Scl2Sed)**2)**0.5
+                Noise2Add = np.sqrt(BkgNoiseTot**2 - (noisebkg_conv*Scl2Sed)**2)
             else:
                 Noise2Add = 0
 
             if DebugTF == True:
                 print('Added Noise '+cssband+' band: ',Noise2Add)
 
-            ImgPoiss = copy.deepcopy(IdealImg)
-            ImgPoiss[ImgPoiss>0] = np.random.poisson(lam=IdealImg[IdealImg>0]*ExpCssFrm, size=IdealImg[IdealImg>0].shape)/ExpCssFrm
+
+            # ImgPoiss = copy.deepcopy(IdealImg)
+            # ImgPoiss[ImgPoiss>0] = np.random.poisson(lam=IdealImg[IdealImg>0]*ExpCssFrm, size=IdealImg[IdealImg>0].shape)/ExpCssFrm
             NoisNormImg = csstpkg.NoiseArr(objwinshape, loc=0, scale=Noise2Add, func='normal')
 
             # DigitizeImg = IdealImg/Gain
-            DigitizeImg = np.round((ImgPoiss + NoisNormImg) / Gain)
+            DigitizeImg = np.round((IdealImg + NoisNormImg) / Gain)  # IdealImg have already been poissonized
+            # DigitizeImg = np.round((ImgPoiss + NoisNormImg) / Gain)
             # DigitizeImg = np.round((ImgPoiss + NoisNormImg + ZeroLevel) / Gain)
 
             # if DebugTF == True:
@@ -228,7 +232,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         else:
             A_stack = StackPhot.centobj['a']
             B_stack = StackPhot.centobj['b']
-            Rrms_stack = ((A_stack**2+B_stack**2)/2)**0.5*pixscale  # RMS radius in arcsec
+            Rrms_stack = np.sqrt((A_stack**2+B_stack**2)/2)*pixscale  # RMS radius in arcsec
             StackPhot.KronR(idk=ident + " Stack", debug=DebugTF, mask_bool=True)
         AduStack, ErrAduStack = StackPhot.EllPhot(StackPhot.kronr, mask_bool=True)
         if AduStack is np.nan:
@@ -438,29 +442,10 @@ if __name__ == '__main__':
         CatOfTile['ximage'] = xyarr[:,0]
         CatOfTile['yimage'] = xyarr[:,1]
 
-        CssCatTileNm = config['Hst2Css']['CssCatTile']
-        ascii.write(CatOfTile, CssCatTileNm.replace(CssCatTileNm[-7:-4], str(sys.argv[1])), format='commented_header', comment='#', overwrite=True)
+        # CssCatTileNm = config['Hst2Css']['CssCatTile']
+        # ascii.write(CatOfTile, CssCatTileNm.replace(CssCatTileNm[-7:-4], str(sys.argv[1])), format='commented_header', comment='#', overwrite=True)
 
         if IfBandSim == True:
-            # schemecode = sys.argv[2]
-            # print('Scheme '+schemecode)
-
-            # if schemecode == '424':
-            #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
-            #     filtnumb = [4, 2, 2, 2, 2, 2, 4]
-            # elif schemecode == '222':
-            #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'WNUV', 'Wg', 'Wi']
-            #     filtnumb = [2, 2, 2, 2, 2, 2, 2, 2, 2]
-            # elif schemecode == '4262':
-            #     cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z']
-            #     filtnumb = [4, 2, 2, 2, 6, 2]
-
-            # cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
-            # filtnumb = [    4,   2,   2,   2,   2,   2,   4]
-
-            # cssbands = ['NUV', 'NUV', 'u', 'g', 'r', 'i', 'z', 'y', 'WNUV', 'Wg', 'Wi']
-            # filtnumb = [    2,     4,   2,   2,   2,   2,   2,   4,      2,    2,    2]
-
             cssbands = config.get('Hst2Css', 'CssBands').split(',')
             filtnumb_str = config.get('Hst2Css', 'FiltNumb').split(',')
             filtnumb = [int(numb) for numb in filtnumb_str]

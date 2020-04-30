@@ -91,9 +91,9 @@ sigmaorig=signmad(taborig)
 # sigma=signmad(tab)
 # print('SNR_i >=', snrthrsh)
 
-print('Catastrophic fraction =',fc)
-print('sigma_NMAD =',sigma)
-print('sigma_NMAD All =',sigmaorig)
+print('sigma_NMAD =','{0:6.4f}'.format(sigma))
+print('sigma_NMAD All =','{0:6.4f}'.format(sigmaorig))
+print('Catastrophic fraction =','{0:5.2%}'.format(fc))
 
 # corcoef = np.corrcoef(tab['zfit'],tab['zinput'])
 #
@@ -116,15 +116,13 @@ ax.set_ylim(0,3)
 ax.set_title('Bands Added Scheme')
 ax.set_xlabel('$z_{\\rm input}$')
 ax.set_ylabel('$z_{\\rm fit}$')
-ax.annotate('$\sigma_{\\rm NMAD} = $'+'{0:7.4f}'.format(sigma),
+ax.annotate('$\sigma_{\\rm NMAD} = $'+'{0:6.4f}'.format(sigma),
             xy=(0.95,0.2), xycoords='axes fraction', horizontalalignment='right')
-ax.annotate('$\sigma_{\\rm NMAD\ All} = $'+'{0:7.4f}'.format(sigmaorig),
+ax.annotate('$\sigma_{\\rm NMAD\ All} = $'+'{0:6.4f}'.format(sigmaorig),
             xy=(0.95,0.15), xycoords='axes fraction', horizontalalignment='right')
-ax.annotate('$f_c = $'+'{0:7.4%}'.format(fc),
+ax.annotate('$f_c = $'+'{0:5.2%}'.format(fc),
             xy=(0.95,0.1), xycoords='axes fraction', horizontalalignment='right')
 datetag=dt.date.today().strftime('%m%d')
 plt.savefig(sys.argv[1].split('.')[0]+'.png', format='png', dpi=300)
 print('Figure '+sys.argv[1].split('.')[0]+'.png'+' saved.')
-plt.show()
-
-print('Finished.')
+# plt.show()

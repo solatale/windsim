@@ -31,7 +31,7 @@ else:
     sys.exit()
 
 snrthr = 10
-snrthr_single = 1
+snrthr_single = 0
 
 simcat0 = ascii.read(simcatname)
 
@@ -44,18 +44,28 @@ simcat0 = ascii.read(simcatname)
 # print(simcat)
 simcat = simcat0.copy()
 del simcat[:]
-print(simcat0)
+# print(simcat0)
 for i,aline in enumerate(simcat0):
     # if (((aline['SNR_g']>=5) and (aline['SNR_r']>=5) and (aline['SNR_i']>=5) and (aline['SNR_z']>=5))
-    if (((aline['SNR_r']**2+aline['SNR_i']**2)>=snrthr) \
-            # or (aline['SNR_r']>=7 and (aline['SNR_i']>=7)) 
-            or (aline['SNR_g']>=snrthr) or (aline['SNR_r']>=snrthr) \
-            or (aline['SNR_i']>=snrthr) or (aline['SNR_z']>=snrthr) \
-            or ((aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr**2)):
-            # and (aline['SNR_NUV2']>3)):
-        simcat.add_row(aline)
+    # if (((aline['SNR_r']**2+aline['SNR_i']**2)>=(snrthr*0.7)**2) \
+    #         # or (aline['SNR_r']>=7 and (aline['SNR_i']>=7)) 
+    #         or (aline['SNR_g']>=snrthr) or (aline['SNR_r']>=snrthr) \
+    #         or (aline['SNR_i']>=snrthr) or (aline['SNR_z']>=snrthr) \
+    #         or ((aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr**2)):
+    #         # and (aline['SNR_NUV2']>3)):
+    #     simcat.add_row(aline)
 
-print(len(simcat), len(simcat0))
+    # if (aline['SNR_r']**2+aline['SNR_i']**2) >= (snrthr*0.7)**2:
+    #     simcat.add_row(aline)
+    # elif (aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2) >= snrthr**2:
+    #     simcat.add_row(aline)
+    # else:
+    #     pass
+
+    if (aline['SNR_r']>=snrthr) or (aline['SNR_i']>=snrthr):
+        simcat.add_row(aline)
+    else:
+        pass
 
 simcat['Context'] = 0
 
@@ -63,7 +73,6 @@ namelists = map(lambda flux, err, aband:[flux+aband, err+aband], ['FluxSim_']*le
 # namelists = map(lambda mag, err, aband:[mag+aband, err+aband], ['MOD_']*len(cssbands), ['ErrMag_'] * len(cssbands), cssbands)
 
 namelists = ['ID']+list(itertools.chain(*namelists))+['Context', 'Z_BEST']
-
 
 for i,catline in enumerate(simcat):
     nbands = 0
@@ -84,12 +93,11 @@ for i,catline in enumerate(simcat):
     if nbands < (totnbands):
         catline['Context'] = -99
 
-
-
 lephcat = simcat[namelists]
 lephcat = lephcat[lephcat['Context']>0]
+print(str(len(lephcat))+'/'+str(len(simcat0)),' objects meet SNR criterian.')
 
 ascii.write(lephcat,sys.argv[1].split('.')[0]+'_'+schemecode+'_flux_toLephare.txt',format='commented_header', comment='#', overwrite=True)
 
 print(sys.argv[1].split('.')[0]+'_'+schemecode+'_flux_toLephare.txt')
-print('Lephare Input Catalog Finished.')
+print('Lephare Input Catalog Generated.\n')
