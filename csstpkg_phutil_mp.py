@@ -110,16 +110,16 @@ bandpos = {'NUV': [2480., 2866., 3260.],
             'wfc_F814W': [6890., 7985., 9640.],
             'skmp_v': [3500., 3870, 4180]}
 
-backsky = {'NUV': 0.0032,
-        'u': 0.017,
-        'g': 0.1403,
-        'r': 0.1797,
-        'i': 0.1851,
-        'z': 0.1,
-        'y': 0.0271,
-        'WNUV': 0.0077,
-        'Wg': 0.2408,
-        'Wi': 0.325,
+backsky = {'NUV': 0.0023,
+        'u': 0.0163,
+        'g': 0.1427,
+        'r': 0.1864,
+        'i': 0.1922,
+        'z': 0.119,
+        'y': 0.0384,
+        'WNUV': 0.0103,
+        'Wg': 0.2476,
+        'Wi': 0.3479,
         'wfc_F814W': 0.1364,
         'lssti': 35.759163, # in one LSST pixel per second
         'skmp_v': 0.0094}
@@ -1201,7 +1201,7 @@ def readsed(filename):
 
 def NeObser(sedarr, cssband, exptime, telarea, flamarr, debug=False):
     """
-    calculate number of electrons by multiplying SED and throughput curves.
+    calculate number of electrons collected in exptime and telarea, by multiplying SED and throughput curves.
     sedarr and thrarr are not necessory to be sampled evenly.
     sedarr is in f_lambda(/A);
     throughput array is in T_lambda(/A).
@@ -1391,7 +1391,7 @@ def MagAB_Zero(Gain, cssband, exptime, telarea):
 
 def FluxAdu_Zero(Gain, cssband, exptime, telarea):
     """
-    calculate F_nu zero point from 1 ADU, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
+    calculate F_nu zero point from 1 ADU which is collected in exptime and telarea, assuming f_nu is constantly as 1 ergs/Hz/s/cm^2.
     thrarr is not necessory to be sampled evenly.
     throughput array is in T_lambda(/A).
     """

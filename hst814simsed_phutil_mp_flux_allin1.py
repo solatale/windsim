@@ -59,6 +59,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         ident = str(cataline['IDENT'])
 
         objwind = csstpkg.windcut(_CssImg, cataline, StampSize)
+        # print(objwind)
 
         if objwind is None:
             if DebugTF == True:
@@ -70,13 +71,13 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
         WinImgBands = np.zeros((len(cssbands), objwinshape[0], objwinshape[1]))  # 3-D array contains images of all the cssbands
 
-        if IfPlotObjWin == True:
-            csstpkg.PlotObjWin(objwind, cataline)
+        if DebugTF == True:
+            if IfPlotObjWin == True:
+                csstpkg.PlotObjWin(objwind, cataline)
+            print('\n--------------------------------------------')
+            print(' '.join([ident, '\nRA DEC:', str(cataline['RA']), str(cataline['DEC'])]))
 
         outcatrowi = [ident, cataline['Z_BEST']]
-
-        if DebugTF == True:
-            print(' '.join([ident, '\nRA DEC:', str(cataline['RA']), str(cataline['DEC'])]))
 
         # Photometry for the central object on the convolved window
         ObjWinPhot_DeBkg = csstpkg.CentrlPhot(objwind.data, id=str(outcatrowi[0]) + " ConvWdW DeBkg")
@@ -135,9 +136,9 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             magaband0 = csstpkg.Ne2MagAB(NeABand0, cssband, expcss, TelArea)
             delmag = float(cataline['MOD_' + cssband + '_css']) - magaband0
             # magsimorig_band = magaband0 - delmag
-            NeABand = NeABand0*10**(-0.4*delmag)
+            NeABand = NeABand0*10**(-0.4*delmag)  # in e-/band/exptime/telarea
             # Do poisson randomize:
-            NeABand = np.random.poisson(lam=NeABand*ExpCssFrm)/ExpCssFrm
+            NeABand = np.random.poisson(lam=NeABand)
 
             NeBands.append(NeABand)
 
@@ -152,11 +153,11 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 magsimorigs.append(csstpkg.Ne2MagAB(NeABand, cssband, expcss, TelArea))
                 print('Magsim_' + cssband + ' =', magsimorigs[bandi])
 
-            Scl2Sed = NeABand / NeConv_DeBkg
+            Scl2Sed = NeABand / NeConv_DeBkg  # To scale stamp HST detection/s to SED in e-/band/exptime/telarea.
             scalings.append(Scl2Sed)
 
             if DebugTF == True:
-                print(ident, 'Scaling Factor: ', Scl2Sed)
+                print('Scaling Factor: ', Scl2Sed)
 
 
             # ZeroLevel = config.getfloat('Hst2Css', 'BZero')
@@ -165,29 +166,29 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             RNCssFrm = config.getfloat('Hst2Css', 'RNCss')
 
             # IdealImg = objwind.data * Scl2Sed + SkyLevel + DarkLevel  # e-
-            IdealImg = ObjWinPhot_DeBkg.data_bkg * Scl2Sed # + SkyLevel + DarkLevel  # e-/s
+            IdealImg = ObjWinPhot_DeBkg.data_bkg * Scl2Sed # + SkyLevel + DarkLevel  # e-
             ObjWinPhot_DeBkg_Errs.append(ObjWinPhot_DeBkg.bkgstd * Scl2Sed)
 
-            if DebugTF == True:
-                # csstpkg.DataArr2Fits(IdealImg/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
+            # if DebugTF == True:
+            #     # csstpkg.DataArr2Fits(IdealImg/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
 
-                # Testing photometry for the scaled convolved window's central object
-                ObjWinPhot = csstpkg.CentrlPhot(IdealImg, id=(ident+" SclTesting"))
-                try:
-                    ObjWinPhot.Bkg(idb=ident + " SclTesting", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
-                except Exception as e:
-                    # print(NeConv_DeBkg, NeABand, IdealImg)
-                    continue
-                ObjWinPhot.Centract(idt=ident + " SclTesting", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=True)
-                if ObjWinPhot.centobj is np.nan:
-                    print('--- No central object detected in testing photometry image---')
-                    continue
-                else:
-                    ObjWinPhot.KronR(idk=ident + " SclTesting", debug=DebugTF, mask_bool=True)
+            #     # Testing photometry for the scaled convolved window's central object
+            #     ObjWinPhot = csstpkg.CentrlPhot(IdealImg, id=(ident+" SclTesting"))
+            #     try:
+            #         ObjWinPhot.Bkg(idb=ident + " SclTesting", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
+            #     except Exception as e:
+            #         # print(NeConv_DeBkg, NeABand, IdealImg)
+            #         continue
+            #     ObjWinPhot.Centract(idt=ident + " SclTesting", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=True)
+            #     if ObjWinPhot.centobj is np.nan:
+            #         print('--- No central object detected in testing photometry image---')
+            #         continue
+            #     else:
+            #         ObjWinPhot.KronR(idk=ident + " SclTesting", debug=DebugTF, mask_bool=True)
 
-                NeConv, ErrNeConv = ObjWinPhot.EllPhot(ObjWinPhot.kronr, mask_bool=True)
+            #     NeConv, ErrNeConv = ObjWinPhot.EllPhot(ObjWinPhot.kronr, mask_bool=True)
 
-                print(' '.join(['Model electrons:', str(NeABand), '\nTesting Photometry After scaling:', str(NeConv)]))
+            #     print(' '.join(['Model electrons:', str(NeABand), '\nTesting Photometry After scaling:', str(NeConv)]))
 
             BkgNoiseTot = np.sqrt(SkyLevel + DarkLevel + RNCssFrm**2*numb)
             if BkgNoiseTot > noisebkg_conv*Scl2Sed:
@@ -196,7 +197,9 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
                 Noise2Add = 0
 
             if DebugTF == True:
-                print('Added Noise '+cssband+' band: ',Noise2Add)
+                print('Noise Total '+cssband+' band: ', BkgNoiseTot)
+                print('Noise Stamp '+cssband+' band: ', noisebkg_conv*Scl2Sed)
+                print('Noise Added '+cssband+' band: ', Noise2Add)
 
 
             # ImgPoiss = copy.deepcopy(IdealImg)

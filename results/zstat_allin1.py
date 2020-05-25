@@ -1,5 +1,5 @@
 """
-Usage python zstat_.py inoutfit_.txt
+Usage python3 zstat_allin1.py inoutfit.out 424
 """
 
 
@@ -113,7 +113,7 @@ plt.scatter(tab['zinput'],tab['zfit'],s=0.5,c='red')
 ax=gca()
 ax.set_xlim(0,3)
 ax.set_ylim(0,3)
-ax.set_title('Bands Added Scheme')
+ax.set_title('Band Senario '+str(sys.argv[2]))
 ax.set_xlabel('$z_{\\rm input}$')
 ax.set_ylabel('$z_{\\rm fit}$')
 ax.annotate('$\sigma_{\\rm NMAD} = $'+'{0:6.4f}'.format(sigma),
