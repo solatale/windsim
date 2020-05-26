@@ -24,7 +24,7 @@ from matplotlib.patches import Ellipse
 from astropy.io import fits
 import sep
 import configparser
-from astropy.stats import SigmaClip
+# from astropy.stats import SigmaClip
 from astropy import stats
 from photutils import Background2D, MedianBackground
 from photutils import make_source_mask
@@ -662,7 +662,7 @@ class CentrlPhot:
         self.bkg = stats.sigma_clip(self.data, sigma=2, cenfunc='median')
         for iter_i in range(5):
             self.bkg = stats.sigma_clip(self.bkg, sigma=2, cenfunc='median')
-
+ 
         self.data_bkg = self.data - np.mean(self.bkg)
         # print(self.data_bkg)
         self.bkgmean, self.bkgmedian, self.bkgstd = sigma_clipped_stats(self.data_bkg.data, sigma=3.0, mask=self.bkg.mask, cenfunc='median')

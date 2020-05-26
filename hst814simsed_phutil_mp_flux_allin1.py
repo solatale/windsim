@@ -57,15 +57,18 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         np.random.seed()
 
         ident = str(cataline['IDENT'])
+        if DebugTF == True:
+            print('\n', ident, '\n--------------------------------------------')
 
         objwind = csstpkg.windcut(_CssImg, cataline, StampSize)
         # print(objwind)
 
         if objwind is None:
             if DebugTF == True:
-                print('--- Object window cutting error ---')
+                print('\033[31mError: '+'Object stamp cutting error.')
             continue
         # csstpkg.DataArr2Fits(objwind.data, ident+'_convwin.fits')
+
         objwinshape = objwind.shape
         # objwind.data = objwind.data * ExpCssFrm
 
@@ -74,8 +77,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         if DebugTF == True:
             if IfPlotObjWin == True:
                 csstpkg.PlotObjWin(objwind, cataline)
-            print('\n--------------------------------------------')
-            print(' '.join([ident, '\nRA DEC:', str(cataline['RA']), str(cataline['DEC'])]))
+            print(' '.join(['RA DEC:', str(cataline['RA']), str(cataline['DEC'])]))
 
         outcatrowi = [ident, cataline['Z_BEST']]
 
