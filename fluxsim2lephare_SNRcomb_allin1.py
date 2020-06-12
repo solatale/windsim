@@ -55,17 +55,17 @@ for i,aline in enumerate(simcat0):
     #         # and (aline['SNR_NUV2']>3)):
     #     simcat.add_row(aline)
 
-    # if (aline['SNR_r']**2+aline['SNR_i']**2) >= (snrthr*0.7)**2:
-    #     simcat.add_row(aline)
-    # elif (aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2) >= snrthr**2:
-    #     simcat.add_row(aline)
-    # else:
-    #     pass
-
-    if (aline['SNR_r']>=snrthr) or (aline['SNR_i']>=snrthr):
+    if (aline['SNR_r']**2+aline['SNR_i']**2) >= (snrthr*0.7)**2:
+        simcat.add_row(aline)
+    elif (aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2) >= snrthr**2:
         simcat.add_row(aline)
     else:
         pass
+
+    # if (aline['SNR_r']>=snrthr) or (aline['SNR_i']>=snrthr):
+    #     simcat.add_row(aline)
+    # else:
+    #     pass
 
 simcat['Context'] = 0
 
@@ -95,6 +95,7 @@ for i,catline in enumerate(simcat):
 
 lephcat = simcat[namelists]
 lephcat = lephcat[lephcat['Context']>0]
+print('')
 print(str(len(lephcat))+'/'+str(len(simcat0)),' objects meet SNR criterian.')
 
 ascii.write(lephcat,sys.argv[1].split('.')[0]+'_'+schemecode+'_flux_toLephare.txt',format='commented_header', comment='#', overwrite=True)

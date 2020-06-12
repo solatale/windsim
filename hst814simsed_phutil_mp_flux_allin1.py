@@ -65,7 +65,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
         if objwind is None:
             if DebugTF == True:
-                print('\033[31mError: '+'Object stamp cutting error.')
+                print('\033[31mError: '+'Object stamp cutting error.\033[0m')
             continue
         # csstpkg.DataArr2Fits(objwind.data, ident+'_convwin.fits')
 
@@ -132,23 +132,22 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             flambandmod = csstpkg.magab2flam(float(cataline['MOD_' + cssband + '_css']), lambpivot)
             flambandsim = csstpkg.magab2flam(magsim, lambpivot)
             flambandarr=np.array([[lambpivot, flambandmod],[lambpivot, flambandsim]])
-            NeABand0 = csstpkg.NeObser(modsed, cssband, expcss, TelArea, flambandarr, debug=DebugTF)  # *cataline['SCALE_BEST']
-            # if NeABand0<1:
-            #     continue
-            magaband0 = csstpkg.Ne2MagAB(NeABand0, cssband, expcss, TelArea)
-            delmag = float(cataline['MOD_' + cssband + '_css']) - magaband0
-            # magsimorig_band = magaband0 - delmag
-            NeABand = NeABand0*10**(-0.4*delmag)  # in e-/band/exptime/telarea
-            # Do poisson randomize:
-            NeABand = np.random.poisson(lam=NeABand)
+            NeABandObs = csstpkg.NeFromSED(modsed, cssband, expcss, TelArea, flambandarr, debug=DebugTF)
 
-            NeBands.append(NeABand)
+            # # magaband0 = csstpkg.Ne2MagAB(NeABandObs, cssband, expcss, TelArea)
+            # delmag = float(cataline['MOD_' + cssband + '_css']) - magsim
+            # NeABand = NeABandObs*10**(-0.4*delmag)  # in e-/band/exptime/telarea
+            # NeBands.append(NeABand)
+
+            NeBands.append(NeABandObs)
+            NeABand = NeABandObs
+            NeABand = np.random.poisson(lam=NeABandObs)   # Do poisson randomize
+
 
             if DebugTF == True:
                 print(' Mag from Sim for '+cssband+' band =', magsim)
-                print(' Mag from Ne Calculation =', magaband0)
-                print('  DeltaMag_'+cssband+' = ', float(cataline['MOD_' + cssband + '_css'])-magsim, delmag)
-
+                # print(' Mag from Ne Calculation =', magaband0)
+                # print('  DeltaMag_'+cssband+' = ', float(cataline['MOD_' + cssband + '_css'])-magsim, delmag)
                 print(' '.join(['Counts on ConvImg:', str(NeConv_DeBkg/ExpCssFrm), 'e-']))
                 print(' '.join([cssband, 'band model electrons = ', str(NeABand), 'e-']))
                 print('MOD_' + cssband + '_css =', cataline['MOD_' + cssband + '_css'])
@@ -171,27 +170,6 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
             IdealImg = ObjWinPhot_DeBkg.data_bkg * Scl2Sed # + SkyLevel + DarkLevel  # e-
             ObjWinPhot_DeBkg_Errs.append(ObjWinPhot_DeBkg.bkgstd * Scl2Sed)
 
-            # if DebugTF == True:
-            #     # csstpkg.DataArr2Fits(IdealImg/Gain, 'Ideal_Zero_Gain_check_'+ident+'_'+cssband+'.fits')
-
-            #     # Testing photometry for the scaled convolved window's central object
-            #     ObjWinPhot = csstpkg.CentrlPhot(IdealImg, id=(ident+" SclTesting"))
-            #     try:
-            #         ObjWinPhot.Bkg(idb=ident + " SclTesting", debug=DebugTF, thresh=1.5, minarea=10, deblend_nthresh=32, deblend_cont=0.01)
-            #     except Exception as e:
-            #         # print(NeConv_DeBkg, NeABand, IdealImg)
-            #         continue
-            #     ObjWinPhot.Centract(idt=ident + " SclTesting", thresh=2.5, deblend_nthresh=32, deblend_cont=0.1, minarea=10, debug=DebugTF, sub_backgrd_bool=True)
-            #     if ObjWinPhot.centobj is np.nan:
-            #         print('--- No central object detected in testing photometry image---')
-            #         continue
-            #     else:
-            #         ObjWinPhot.KronR(idk=ident + " SclTesting", debug=DebugTF, mask_bool=True)
-
-            #     NeConv, ErrNeConv = ObjWinPhot.EllPhot(ObjWinPhot.kronr, mask_bool=True)
-
-            #     print(' '.join(['Model electrons:', str(NeABand), '\nTesting Photometry After scaling:', str(NeConv)]))
-
             BkgNoiseTot = np.sqrt(SkyLevel + DarkLevel + RNCssFrm**2*numb)
             if BkgNoiseTot > noisebkg_conv*Scl2Sed:
                 Noise2Add = np.sqrt(BkgNoiseTot**2 - (noisebkg_conv*Scl2Sed)**2)
@@ -210,11 +188,10 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
             # DigitizeImg = IdealImg/Gain
             DigitizeImg = np.round((IdealImg + NoisNormImg) / Gain)  # IdealImg have already been poissonized
-            # DigitizeImg = np.round((ImgPoiss + NoisNormImg) / Gain)
             # DigitizeImg = np.round((ImgPoiss + NoisNormImg + ZeroLevel) / Gain)
 
             # if DebugTF == True:
-            #     csstpkg.DataArr2Fits(DigitizeImg, 'Ideal_Zero_Gain_RN_check_'+ident+'_'+cssband+'.fits')
+            #     csstpkg.DataArr2Fits(DigitizeImg, 'ImgWinSim_Gain_RN_'+ident+'_'+cssband+'.fits')
 
             WinImgBands[bandi, ::] = DigitizeImg
 
@@ -237,7 +214,7 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
         else:
             A_stack = StackPhot.centobj['a']
             B_stack = StackPhot.centobj['b']
-            Rrms_stack = np.sqrt((A_stack**2+B_stack**2)/2)*pixscale  # RMS radius in arcsec
+            # Rrms_stack = np.sqrt((A_stack**2+B_stack**2)/2)*pixscale  # RMS radius in arcsec
             StackPhot.KronR(idk=ident + " Stack", debug=DebugTF, mask_bool=True)
         AduStack, ErrAduStack = StackPhot.EllPhot(StackPhot.kronr, mask_bool=True)
         if AduStack is np.nan:
@@ -292,7 +269,8 @@ def simul_css(CataSect, _CssImg, cssbands, filtnumb, npi):
 
         del WinImgBands
 
-        outcatrowi = outcatrowi + [Rrms_stack]
+        outcatrowi = outcatrowi + [npix]
+        # outcatrowi = outcatrowi + [Rrms_stack]
         colnumb = len(outcatrowi)
 
         OutRowStr = ('{} '+(colnumb-1)*'{:15.6E}').format(*outcatrowi)+'\n'
@@ -437,7 +415,7 @@ if __name__ == '__main__':
             CssCat.rename_column('RA07','RA')
             CssCat.rename_column('DEC07','DEC')
         except:
-            print('Already using RA,DEC of Leauthaud2007.')
+            print('Using RA,DEC of Leauthaud2007.')
         CatCutIdx = np.where((CssCat['RA']>RaMin) & (CssCat['RA']<RaMax) & (CssCat['DEC']>DecMin) & (CssCat['DEC']<DecMax))
         CatOfTile = CssCat[CatCutIdx]
 
@@ -487,7 +465,7 @@ if __name__ == '__main__':
             headcomment = '# ID Z_BEST MOD_NUV2 FluxSim_NUV2 ErrFlux_NUV2 SNR_NUV2 MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV ' \
                           'MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i ' \
                           'FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y MOD_WNUV ' \
-                          'FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_Wg FluxSim_Wg ErrFlux_Wg SNR_Wg MOD_Wi FluxSim_Wi ErrFlux_Wi SNR_Wi MOD_i6 FluxSim_i6 ErrFlux_i6 SNR_i6 RrmsSimAS\n'
+                          'FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_Wg FluxSim_Wg ErrFlux_Wg SNR_Wg MOD_Wi FluxSim_Wi ErrFlux_Wi SNR_Wi MOD_i6 FluxSim_i6 ErrFlux_i6 SNR_i6 Npix\n'
             OutCssCat.write(headcomment)
 
             OutCssCat.flush()

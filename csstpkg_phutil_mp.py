@@ -127,7 +127,7 @@ backsky = {'NUV': 0.0023,
 lambd = np.linspace(1000, 12000, 11001, endpoint=True)
 lambdarr = np.transpose(np.vstack((lambd,lambd)))
 
-kphotpar = 2.5
+kphotpar = 2
 
 
 
@@ -1199,7 +1199,7 @@ def readsed(filename):
     return fitsed, flag
 
 
-def NeObser(sedarr, cssband, exptime, telarea, flamarr, debug=False):
+def NeFromSED(sedarr, cssband, exptime, telarea, flamarr, debug=False):
     """
     calculate number of electrons collected in exptime and telarea, by multiplying SED and throughput curves.
     sedarr and thrarr are not necessory to be sampled evenly.
