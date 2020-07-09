@@ -1,6 +1,6 @@
 """
-To format the header of lephare's .out file to standard header, and do statistics for photo-z.
-Usage python3 zstat_lephout.py inoutfit.out 424
+To format the header of lephare's .out file to standard header .txt file, and do statistics for photo-z.
+Usage python3 zstat_lephout.py inoutfit.out 424 r10
 """
 
 
@@ -15,6 +15,8 @@ from astropy.io import ascii
 from pylab import gca
 import datetime as dt
 
+
+snrthr = 10
 
 def signmad(tab):
     deltz = tab['zfit']-tab['zinput']
@@ -42,6 +44,40 @@ def inffilter(astropytable):
     return astropytable
 
 
+def snrfilter(astropytable, snrcri):
+
+    catsnr = astropytable.copy()
+    catsnr['SNR_g'] = 1.0857/catsnr['ERR_MAG_OBS_g']
+    catsnr['SNR_r'] = 1.0857/catsnr['ERR_MAG_OBS_r']
+    catsnr['SNR_i'] = 1.0857/catsnr['ERR_MAG_OBS_i']
+    catsnr['SNR_z'] = 1.0857/catsnr['ERR_MAG_OBS_z']
+
+    # del catsnr[:]
+    if snrcri=='r10':
+        idx = np.where((catsnr['SNR_r']>=snrthr)|(catsnr['SNR_i']>=snrthr))
+        # for i,aline in enumerate(astropytable):
+        #     if (aline['SNR_r']>=snrthr) or (aline['SNR_i']>=snrthr):
+        #         catsnr.add_row(aline)
+        #     else:
+        #         pass
+    elif snrcri=='ri10':
+        idx = np.where((catsnr['SNR_r']**2+catsnr['SNR_i']**2)>=snrthr**2)
+        # for i,aline in enumerate(astropytable):
+        #     if (aline['SNR_r']**2+aline['SNR_i']**2)>=snrthr**2:
+        #         catsnr.add_row(aline)
+        #     else:
+        #         pass
+    elif snrcri=='griz10':
+        idx = np.where((catsnr['SNR_g']**2+catsnr['SNR_r']**2+catsnr['SNR_i']**2+catsnr['SNR_z']**2)>=snrthr**2)
+        # for i,aline in enumerate(astropytable):
+        #     if (aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr**2:
+        #         catsnr.add_row(aline)
+        #     else:
+        #         pass
+    else:
+        return astropytable
+    return astropytable[idx]
+
 
 if __name__ == '__main__':
 
@@ -51,6 +87,7 @@ if __name__ == '__main__':
 
     # Format the header
     senario = str(sys.argv[2])
+    snrcri = str(sys.argv[3])
 
     if senario == '424':
         cssbands = ['NUV', 'u', 'g', 'r', 'i', 'z', 'y']
@@ -94,25 +131,26 @@ if __name__ == '__main__':
     # Do statistics for photo-z.
     taborig0 = ascii.read(datafilenm)
 
-    taborig = inffilter(taborig0)
-    # print(taborig[0])
+    # taborig = inffilter(taborig0)
+    taborig = keyfilter(taborig0, 'Z_BEST', 0.0)
 
-    taborig = keyfilter(taborig, 'Z_BEST', 0.0)
-    colnames = taborig.colnames
+    tabsnr = snrfilter(taborig, snrcri)
+
+    colnames = tabsnr.colnames
     nameskeep = [colnames[0],colnames[1],colnames[-1]]
-    taborig.keep_columns(nameskeep)
-    taborig.rename_column(taborig.colnames[0], 'ID')
-    taborig.rename_column(taborig.colnames[1], 'zfit')
-    taborig.rename_column(taborig.colnames[-1], 'zinput')
+    tabsnr.keep_columns(nameskeep)
+    tabsnr.rename_column(tabsnr.colnames[0], 'ID')
+    tabsnr.rename_column(tabsnr.colnames[1], 'zfit')
+    tabsnr.rename_column(tabsnr.colnames[-1], 'zinput')
 
-    # print(taborig)
+    # print(tabsnr)
 
-    deltaz = np.abs(taborig['zfit']-taborig['zinput'])
-    tab = taborig[deltaz/(1+taborig['zinput'])<=0.15]
+    deltaz = np.abs(tabsnr['zfit']-tabsnr['zinput'])
+    tab = tabsnr[deltaz/(1+tabsnr['zinput'])<=0.15]
     print(len(tab),'/',len(deltaz))
     fc = 1.-float(len(tab))/len(deltaz)
     sigma=signmad(tab)
-    sigmaorig=signmad(taborig)
+    sigmaorig=signmad(tabsnr)
 
     print('sigma_NMAD =','{0:6.4f}'.format(sigma))
     print('sigma_NMAD All =','{0:6.4f}'.format(sigmaorig))
@@ -123,11 +161,11 @@ if __name__ == '__main__':
     plt.plot([0,10],[0,10],'-', color='dodgerblue', linewidth=0.5)
     plt.plot(np.array([0,10]), 0.15+1.15*np.array([0,10]), ls='--',  color='dodgerblue', linewidth=0.5)
     plt.plot(np.array([0,10]), -0.15+0.85*np.array([0,10]), '--', color='dodgerblue', linewidth=0.5)
-    plt.scatter(taborig['zinput'],taborig['zfit'],s=0.5,c='black')
+    plt.scatter(tabsnr['zinput'],tabsnr['zfit'],s=0.5,c='black')
     plt.scatter(tab['zinput'],tab['zfit'],s=0.5,c='red')
     ax=gca()
-    ax.set_xlim(0,3)
-    ax.set_ylim(0,3)
+    ax.set_xlim(0,4)
+    ax.set_ylim(0,4)
     ax.set_title('Band Senario '+str(sys.argv[2]))
     ax.set_xlabel('$z_{\\rm input}$')
     ax.set_ylabel('$z_{\\rm fit}$')
@@ -140,4 +178,4 @@ if __name__ == '__main__':
     datetag=dt.date.today().strftime('%m%d')
     plt.savefig(sys.argv[1].split('.')[0]+'.png', format='png', dpi=300)
     print('Figure '+sys.argv[1].split('.')[0]+'.png'+' saved.')
-    # plt.show()
+    plt.show()
