@@ -157,12 +157,12 @@ if __name__ == '__main__':
     print('Catastrophic fraction =','{0:5.2%}'.format(fc))
 
 
-    plt.figure(figsize=(5,5))
+    plt.figure(figsize=(6,6))
     plt.plot([0,10],[0,10],'-', color='dodgerblue', linewidth=0.5)
     plt.plot(np.array([0,10]), 0.15+1.15*np.array([0,10]), ls='--',  color='dodgerblue', linewidth=0.5)
     plt.plot(np.array([0,10]), -0.15+0.85*np.array([0,10]), '--', color='dodgerblue', linewidth=0.5)
-    plt.scatter(tabsnr['zinput'],tabsnr['zfit'],s=0.5,c='black')
-    plt.scatter(tab['zinput'],tab['zfit'],s=0.5,c='red')
+    plt.scatter(tabsnr['zinput'],tabsnr['zfit'],s=0.2,c='black')
+    plt.scatter(tab['zinput'],tab['zfit'],s=0.2,c='red')
     ax=gca()
     ax.set_xlim(0,4)
     ax.set_ylim(0,4)
@@ -178,4 +178,4 @@ if __name__ == '__main__':
     datetag=dt.date.today().strftime('%m%d')
     plt.savefig(sys.argv[1].split('.')[0]+'.png', format='png', dpi=300)
     print('Figure '+sys.argv[1].split('.')[0]+'.png'+' saved.')
-    plt.show()
+    # plt.show()

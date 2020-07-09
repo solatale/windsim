@@ -1,5 +1,5 @@
 """
-Usage: python3 fluxsim2lephare_SNR10_allin1.py $mergedsimmagfile 424
+Usage: python3 fluxsim2lephare_SNRcomb_allin1.py $mergedsimmagfile 424
 Select samples whose composite SNR>10
 """
 
@@ -36,36 +36,11 @@ snrthr_single = 0
 simcat0 = ascii.read(simcatname)
 
 # Sample selection:
+idx = np.where((simcat0['SNR_g']**2+simcat0['SNR_r']**2+simcat0['SNR_i']**2+simcat0['SNR_z']**2) >= snrthr**2)
+# idx = np.where((simcat0['SNR_r']**2+simcat0['SNR_i']**2) >= snrthr**2)
+# idx = np.where((simcat0['SNR_r']>=snrthr)|(simcat0['SNR_i']>=snrthr))
 
-# simcat = simcat0[np.where((simcat0['SNR_g']>=5 & simcat0['SNR_r']>=5 & simcat0['SNR_i']>=5 & simcat0['SNR_z']>=5) | (simcat0['SNR_r']>=7 & simcat0['SNR_i']>=7) | simcat0['SNR_r']>=10 | simcat0['SNR_g']>=10 | (simcat0['SNR_g']**2+simcat0['SNR_r']**2+simcat0['SNR_i']**2+simcat0['SNR_z']**2)>=100)]
-
-
-# simcat = Table(names=simcat0.colnames, dtype=list(simcat0.dtype))
-# print(simcat)
-simcat = simcat0.copy()
-del simcat[:]
-# print(simcat0)
-for i,aline in enumerate(simcat0):
-    # if (((aline['SNR_g']>=5) and (aline['SNR_r']>=5) and (aline['SNR_i']>=5) and (aline['SNR_z']>=5))
-    # if (((aline['SNR_r']**2+aline['SNR_i']**2)>=(snrthr*0.7)**2) \
-    #         # or (aline['SNR_r']>=7 and (aline['SNR_i']>=7)) 
-    #         or (aline['SNR_g']>=snrthr) or (aline['SNR_r']>=snrthr) \
-    #         or (aline['SNR_i']>=snrthr) or (aline['SNR_z']>=snrthr) \
-    #         or ((aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr**2)):
-    #         # and (aline['SNR_NUV2']>3)):
-    #     simcat.add_row(aline)
-
-    if (aline['SNR_r']**2+aline['SNR_i']**2) >= (snrthr*0.7)**2:
-        simcat.add_row(aline)
-    elif (aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2) >= snrthr**2:
-        simcat.add_row(aline)
-    else:
-        pass
-
-    # if (aline['SNR_r']>=snrthr) or (aline['SNR_i']>=snrthr):
-    #     simcat.add_row(aline)
-    # else:
-    #     pass
+simcat = simcat0[idx]
 
 simcat['Context'] = 0
 
