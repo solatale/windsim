@@ -19,11 +19,11 @@ import datetime as dt
 snrthr = 10
 
 def signmad(tab):
-    deltz = tab['zfit']-tab['zinput']
+    deltz = tab['Z_BEST']-tab['ZSPEC']
     # print np.median(deltz)
-    # print (deltz-np.median(deltz))/(1+tab['zinput'])
-    sigmanmad = 1.48*np.median(np.abs((deltz-np.median(deltz))/(1+tab['zinput'])))
-    # sigmanmad = 1.48 * np.median(np.abs(deltz / (1 + tab['zinput'])))
+    # print (deltz-np.median(deltz))/(1+tab['ZSPEC'])
+    sigmanmad = 1.48*np.median(np.abs((deltz-np.median(deltz))/(1+tab['ZSPEC'])))
+    # sigmanmad = 1.48 * np.median(np.abs(deltz / (1 + tab['ZSPEC'])))
     return sigmanmad
 
 
@@ -45,35 +45,22 @@ def inffilter(astropytable):
 
 
 def snrfilter(astropytable, snrcri):
-
-    catsnr = astropytable.copy()
-    catsnr['SNR_g'] = 1.0857/catsnr['ERR_MAG_OBS_g']
-    catsnr['SNR_r'] = 1.0857/catsnr['ERR_MAG_OBS_r']
-    catsnr['SNR_i'] = 1.0857/catsnr['ERR_MAG_OBS_i']
-    catsnr['SNR_z'] = 1.0857/catsnr['ERR_MAG_OBS_z']
+    # astropytable should contain columns named SNR_g,SNR_r,SNR_i,SNR_z
+    # catsnr = astropytable.copy()
+    # catsnr['SNR_g'] = 1.0857/catsnr['ERR_MAG_OBS_g']
+    # catsnr['SNR_r'] = 1.0857/catsnr['ERR_MAG_OBS_r']
+    # catsnr['SNR_i'] = 1.0857/catsnr['ERR_MAG_OBS_i']
+    # catsnr['SNR_z'] = 1.0857/catsnr['ERR_MAG_OBS_z']
 
     # del catsnr[:]
     if snrcri=='r10':
-        idx = np.where((catsnr['SNR_r']>=snrthr)|(catsnr['SNR_i']>=snrthr))
-        # for i,aline in enumerate(astropytable):
-        #     if (aline['SNR_r']>=snrthr) or (aline['SNR_i']>=snrthr):
-        #         catsnr.add_row(aline)
-        #     else:
-        #         pass
+        idx = np.where((astropytable['SNR_r']>=snrthr)|(astropytable['SNR_i']>=snrthr))
     elif snrcri=='ri10':
-        idx = np.where((catsnr['SNR_r']**2+catsnr['SNR_i']**2)>=snrthr**2)
-        # for i,aline in enumerate(astropytable):
-        #     if (aline['SNR_r']**2+aline['SNR_i']**2)>=snrthr**2:
-        #         catsnr.add_row(aline)
-        #     else:
-        #         pass
+        idx = np.where((astropytable['SNR_r']**2+astropytable['SNR_i']**2)>=snrthr**2)
     elif snrcri=='griz10':
-        idx = np.where((catsnr['SNR_g']**2+catsnr['SNR_r']**2+catsnr['SNR_i']**2+catsnr['SNR_z']**2)>=snrthr**2)
-        # for i,aline in enumerate(astropytable):
-        #     if (aline['SNR_g']**2+aline['SNR_r']**2+aline['SNR_i']**2+aline['SNR_z']**2)>=snrthr**2:
-        #         catsnr.add_row(aline)
-        #     else:
-        #         pass
+        idx = np.where((astropytable['SNR_g']**2+astropytable['SNR_r']**2+astropytable['SNR_i']**2+astropytable['SNR_z']**2)>=snrthr**2)
+    elif snrcri=='r20':
+        idx = np.where((astropytable['SNR_r']>=(snrthr*2))|(astropytable['SNR_i']>=(snrthr*2)))
     else:
         return astropytable
     return astropytable[idx]
@@ -81,11 +68,6 @@ def snrfilter(astropytable, snrcri):
 
 if __name__ == '__main__':
 
-    # defaults = {'basedir': '/work/CSSOS/filter_improve/fromimg/windextract'}
-    # config = configparser.ConfigParser(defaults)
-    # config.read('cssos_config.ini')
-
-    # Format the header
     senario = str(sys.argv[2])
     snrcri = str(sys.argv[3])
 
@@ -113,7 +95,7 @@ if __name__ == '__main__':
     magmod = map(lambda magmod, aband: [magmod+aband], ['MAG_MOD_']*len(cssbands), cssbands)
     magmod = ' '.join(list(itertools.chain(*magmod)))+'  '
 
-    header = header0 + magobser + errmagobser + magmod + ' Context  ZSPEC\n'
+    header = header0 + magobser + errmagobser + magmod + ' Context  ZSPEC  SNR_u SNR_g SNR_r SNR_i SNR_z\n'
 
     outfile = open(sys.argv[1],'r').readlines()
     del outfile[0:55]
@@ -130,24 +112,23 @@ if __name__ == '__main__':
 
     # Do statistics for photo-z.
     taborig0 = ascii.read(datafilenm)
-
     # taborig = inffilter(taborig0)
     taborig = keyfilter(taborig0, 'Z_BEST', 0.0)
 
     tabsnr = snrfilter(taborig, snrcri)
 
+    print(len(tabsnr),'/',len(taborig),'meet SNR criterian.')
+
     colnames = tabsnr.colnames
-    nameskeep = [colnames[0],colnames[1],colnames[-1]]
-    tabsnr.keep_columns(nameskeep)
-    tabsnr.rename_column(tabsnr.colnames[0], 'ID')
-    tabsnr.rename_column(tabsnr.colnames[1], 'zfit')
-    tabsnr.rename_column(tabsnr.colnames[-1], 'zinput')
 
-    # print(tabsnr)
+    # nameskeep = [colnames[0],colnames[1],colnames[-1]]
+    # tabsnr.keep_columns(nameskeep)
+    # tabsnr.rename_column(tabsnr.colnames[0], 'ID')
+    # tabsnr.rename_column(tabsnr.colnames[1], 'zfit')
+    # tabsnr.rename_column('ZSPEC', 'zinput')
 
-    deltaz = np.abs(tabsnr['zfit']-tabsnr['zinput'])
-    tab = tabsnr[deltaz/(1+tabsnr['zinput'])<=0.15]
-    print(len(tab),'/',len(deltaz))
+    deltaz = np.abs(tabsnr['Z_BEST']-tabsnr['ZSPEC'])
+    tab = tabsnr[deltaz/(1+tabsnr['ZSPEC'])<=0.15]
     fc = 1.-float(len(tab))/len(deltaz)
     sigma=signmad(tab)
     sigmaorig=signmad(tabsnr)
@@ -161,11 +142,11 @@ if __name__ == '__main__':
     plt.plot([0,10],[0,10],'-', color='dodgerblue', linewidth=0.5)
     plt.plot(np.array([0,10]), 0.15+1.15*np.array([0,10]), ls='--',  color='dodgerblue', linewidth=0.5)
     plt.plot(np.array([0,10]), -0.15+0.85*np.array([0,10]), '--', color='dodgerblue', linewidth=0.5)
-    plt.scatter(tabsnr['zinput'],tabsnr['zfit'],s=0.2,c='black')
-    plt.scatter(tab['zinput'],tab['zfit'],s=0.2,c='red')
+    plt.scatter(tabsnr['ZSPEC'],tabsnr['Z_BEST'], s=3, c='black', alpha=0.2, edgecolors='none')
+    #plt.scatter(tab['ZSPEC'],tab['Z_BEST'],s=0.2,c='red')
     ax=gca()
-    ax.set_xlim(0,4)
-    ax.set_ylim(0,4)
+    ax.set_xlim(0,6)
+    ax.set_ylim(0,6)
     ax.set_title('Band Senario '+str(sys.argv[2]))
     ax.set_xlabel('$z_{\\rm input}$')
     ax.set_ylabel('$z_{\\rm fit}$')
@@ -176,6 +157,6 @@ if __name__ == '__main__':
     ax.annotate('$f_c = $'+'{0:5.2%}'.format(fc),
                 xy=(0.95,0.1), xycoords='axes fraction', horizontalalignment='right')
     datetag=dt.date.today().strftime('%m%d')
-    plt.savefig(sys.argv[1].split('.')[0]+'.png', format='png', dpi=300)
-    print('Figure '+sys.argv[1].split('.')[0]+'.png'+' saved.')
-    # plt.show()
+    plt.savefig(sys.argv[1].split('.')[0]+'_'+snrcri+'.png', format='png', dpi=300)
+    print('Figure '+sys.argv[1].split('.')[0]+'_'+snrcri+'.png'+' saved.')
+    plt.show()

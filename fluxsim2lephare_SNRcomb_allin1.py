@@ -47,7 +47,7 @@ simcat['Context'] = 0
 namelists = map(lambda flux, err, aband:[flux+aband, err+aband], ['FluxSim_']*len(cssbands), ['ErrFlux_'] * len(cssbands), cssbands)
 # namelists = map(lambda mag, err, aband:[mag+aband, err+aband], ['MOD_']*len(cssbands), ['ErrMag_'] * len(cssbands), cssbands)
 
-namelists = ['ID']+list(itertools.chain(*namelists))+['Context', 'Z_BEST']
+namelists = ['ID']+list(itertools.chain(*namelists))+['Context', 'Z_BEST', 'SNR_u', 'SNR_g', 'SNR_r', 'SNR_i', 'SNR_z']
 
 for i,catline in enumerate(simcat):
     nbands = 0
@@ -71,7 +71,7 @@ for i,catline in enumerate(simcat):
 lephcat = simcat[namelists]
 lephcat = lephcat[lephcat['Context']>0]
 print('')
-print(str(len(lephcat))+'/'+str(len(simcat0)),' objects meet SNR criterian.')
+print(str(len(lephcat))+'/'+str(len(simcat0)),' meet SNR criterian.')
 
 ascii.write(lephcat,sys.argv[1].split('.')[0]+'_'+schemecode+'_flux_toLephare.txt',format='commented_header', comment='#', overwrite=True)
 
