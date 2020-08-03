@@ -50,6 +50,7 @@ for i in `seq $nparam`
 do
     senariocode=${!i}
     echo -e "\nSenario "$senariocode"\n"
+    cd /work/CSSOS/filter_improve/fromimg/windextract
     python3 fluxsim2lephare_SNRcomb_allin1_uBgNWiByUV_np.py $mergedfile $senariocode $N_Lephare
     sleep $tsleep
 
