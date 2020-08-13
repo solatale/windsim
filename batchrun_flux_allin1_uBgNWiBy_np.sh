@@ -20,11 +20,12 @@ fi
 #         rm "csscat_merge.txt"
 # fi
 N_Lephare=6
-datetag="20200801"
-#`date +%Y%m%d`
+datetag="20200807"
+#datetag=`date +%Y%m%d`
 datetagmd=`date +%m%d`
-export LEPHAREWORK='/work/CSSOS/lephare_dev/sim2pht-Z_allin1_uB410'
-export resultdir='/work/CSSOS/filter_improve/fromimg/windextract/results0801uB410_1'
+export LEPHAREWORK='/work/CSSOS/lephare_dev/sim2pht-Z_allin1'
+export baseworkdir='/work/CSSOS/filter_improve/fromimg/windextract'
+export resultdir=$baseworkdir'/result0807'
 echo "LePhare Work in "$LEPHAREWORK
 
 tiles=''
@@ -50,7 +51,7 @@ for i in `seq $nparam`
 do
     senariocode=${!i}
     echo -e "\nSenario "$senariocode"\n"
-    cd /work/CSSOS/filter_improve/fromimg/windextract
+    cd $baseworkdir
     python3 fluxsim2lephare_SNRcomb_allin1_uBgNWiByUV_np.py $mergedfile $senariocode $N_Lephare
     sleep $tsleep
 
@@ -62,19 +63,19 @@ do
         lephareout=$lephoutroot"_"$ile".out"
         cp $tolephare_merged $LEPHAREWORK
         cd $LEPHAREWORK
-        echo ""
-        $LEPHAREDIR/source/zphota -c $LEPHAREWORK/config/cssos_zphot_cssbands.para -CAT_IN $LEPHAREWORK/$tolephare_merged -CAT_OUT $LEPHAREWORK/$lephareout -INP_TYPE F -CAT_FMT MEME -CAT_TYPE LONG -TRANS_TYPE 0 -SPEC_OUT NO -ZFIX NO -Z_INTERP YES
+        $LEPHAREDIR/source/zphota -c $LEPHAREWORK/config/cssos_zphot_cssbands.para -CAT_IN $LEPHAREWORK/$tolephare_merged -CAT_OUT $LEPHAREWORK/$lephareout -INP_TYPE F -CAT_FMT MEME -CAT_TYPE LONG -TRANS_TYPE 0 -SPEC_OUT NO -ZFIX NO -Z_INTERP YES > /tmp/"lepharefit_"$ile".log"
         cd $resultdir
-        cp /work/CSSOS/filter_improve/fromimg/windextract/$mergedfile ./
+        cp $baseworkdir/$mergedfile ./
         mv $LEPHAREWORK/$tolephare_merged ./
         mv $LEPHAREWORK/$lephareout ./
 
-    } &
+    }&
     done
     wait
     # sleep $tsleep
+    echo -e "\nFitting cycle finished."
     cd $resultdir
-    python3 zstat_lephout_uBgNWiBy_np.py $N_Lephare $lephoutroot $senariocode i20 i10 gi10 griz10
+    python3 $baseworkdir/zstat_lephout_uBgNWiBy_np.py $N_Lephare $lephoutroot $senariocode i20 i10 gi10 griz10
     # sleep $tsleep
 done
 date "+%Y-%m-%dT%H:%M:%S"
