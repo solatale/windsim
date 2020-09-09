@@ -468,7 +468,7 @@ if __name__ == '__main__':
             namelists = map(lambda modmag, fluxsim, fluxsimerr, snrsim, aband: \
                                 [modmag+aband, fluxsim+aband, fluxsimerr+aband, snrsim+aband], \
                             ['MOD_']*len(cssbands), ['FluxSim_'] * len(cssbands), ['ErrFlux_'] * len(cssbands), ['SNR_'] * len(cssbands), cssbands)
-            colnames = ['ID','Z_BEST']+list(itertools.chain(*namelists))+['Npix']+['Drms_sec']
+            colnames = ['ID','Z_BEST']+list(itertools.chain(*namelists))+['Npix','Drms_sec']
 
             LenCatTile = len(CatOfTile)
             print('Catalog Length: ',LenCatTile)
@@ -479,7 +479,7 @@ if __name__ == '__main__':
                 os.remove(OutCssCatName)
             OutCssCat = open(OutCssCatName, mode='w')
             headcomment = '# '+' '.join(colnames)+'\n'
-            # headcomment = '# ID Z_BEST MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV MOD_NUV2 FluxSim_NUV2 ErrFlux_NUV2 SNR_NUV2 MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y MOD_y2 FluxSim_y2 ErrFlux_y2 SNR_y2 MOD_WNUV  FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_Wg FluxSim_Wg ErrFlux_Wg SNR_Wg MOD_Wi FluxSim_Wi ErrFlux_Wi SNR_Wi MOD_i4 FluxSim_i4 ErrFlux_i4 SNR_i4 MOD_uB FluxSim_uB ErrFlux_uB SNR_uB MOD_gN FluxSim_gN ErrFlux_gN SNR_gN Npix Drms_sec\n'
+            # headcomment = '# ID Z_BEST MOD_NUV FluxSim_NUV ErrFlux_NUV SNR_NUV MOD_NUV2 FluxSim_NUV2 ErrFlux_NUV2 SNR_NUV2 MOD_u FluxSim_u ErrFlux_u SNR_u MOD_g FluxSim_g ErrFlux_g SNR_g MOD_r FluxSim_r ErrFlux_r SNR_r MOD_i FluxSim_i ErrFlux_i SNR_i MOD_z FluxSim_z ErrFlux_z SNR_z MOD_y FluxSim_y ErrFlux_y SNR_y MOD_y2 FluxSim_y2 ErrFlux_y2 SNR_y2 MOD_WNUV  FluxSim_WNUV ErrFlux_WNUV SNR_WNUV MOD_WV FluxSim_WV ErrFlux_WV SNR_WV MOD_WI FluxSim_WI ErrFlux_WI SNR_WI MOD_i4 FluxSim_i4 ErrFlux_i4 SNR_i4 MOD_uB FluxSim_uB ErrFlux_uB SNR_uB MOD_gN FluxSim_gN ErrFlux_gN SNR_gN Npix Drms_sec\n'
 
             OutCssCat.write(headcomment)
 

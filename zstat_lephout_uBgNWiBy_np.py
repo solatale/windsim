@@ -69,10 +69,10 @@ def snrfilter(astropytable, snrcri, band='i'):
         idx = np.where((astropytable['SNR_g']>=snrthr)|(astropytable['SNR_i']>=snrthr))
     elif snrcri=='gi10':
         idx = np.where((astropytable['SNR_g']**2+astropytable['SNR_i']**2)>=snrthr**2)
-    elif snrcri=='Wi10':
-        idx = np.where((astropytable['SNR_Wg']>=snrthr)|(astropytable['SNR_Wi']>=snrthr))    
-    elif snrcri=='Wgi10':
-        idx = np.where((astropytable['SNR_WNUV']**2+astropytable['SNR_Wg']**2+astropytable['SNR_Wi']**2)>=snrthr**2)
+    elif snrcri=='WI10':
+        idx = np.where((astropytable['SNR_WV']>=snrthr)|(astropytable['SNR_WI']>=snrthr))    
+    elif snrcri=='WVI10':
+        idx = np.where((astropytable['SNR_WV']**2+astropytable['SNR_WI']**2)>=snrthr**2)
     elif snrcri=='griz10':
         # if senario[0:3]=='424':
         idx = np.where((astropytable['SNR_g']**2+astropytable['SNR_r']**2+astropytable['SNR_i']**2+astropytable['SNR_z']**2)>=snrthr**2)
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     senario = str(sys.argv[3])
     snrcri = sys.argv[4:]
 
-    allbands =['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2', 'y', 'y2', 'WNUV', 'WNUV2', 'Wg', 'Wi', 'i4', 'uB', 'gN', 'WiBy', 'zN', 'WgB', 'WiN', 'WiNy', 'UV', 'uB410', 'gN410']
+    allbands =['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2', 'y', 'y2', 'WU', 'WU2', 'WV', 'WI', 'i4', 'uB', 'gN', 'WIBy', 'zN', 'WVB', 'WIN', 'WINy', 'WUv', 'uB410', 'gN410']
     snrlists = map(lambda snr, aband:[snr+aband], ['SNR_']*len(allbands), allbands)
 
     header = '# IDENT  Z_BEST  ZSPEC  Z_ML  CONTEXT  ' + ' '.join(list(itertools.chain(*snrlists))) + ' Drms_sec\n'
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     print(lenorig,'unique outputs.\n\n')
     # taborig = inffilter(taborig0)
     taborig = keyfilter(taborig, 'Z_BEST', 0.1, gtlt='gt')
-    taborig = keyfilter(taborig, 'ZSPEC', 0.1, gtlt='gt')
+    taborig = keyfilter(taborig, 'ZSPEC', 0.1, gtlt='gt')    # May have effect of different galaxy density
 
     tabzlt3 = keyfilter(taborig, 'Z_BEST', 3, gtlt='lt')
     tabzlt3 = keyfilter(tabzlt3, 'ZSPEC', 3, gtlt='lt')
@@ -184,10 +184,10 @@ if __name__ == '__main__':
             ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{g\,\mathrm{or}\,i}\geq 20$')
         elif snr=='i10':
             ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{g\,\mathrm{or}\,i}\geq 10$')
-        elif snr=='Wi10':
-            ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{Wg\,\mathrm{or}\,Wi}\geq 10$')
-        elif snr=='Wgi10':
-            ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{WNUV+Wg+Wi}\geq 10$')    
+        elif snr=='WI10':
+            ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{WV\,\mathrm{or}\,WI}\geq 10$')
+        elif snr=='WVI10':
+            ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{WU+WV+WI}\geq 10$')    
         elif snr=='gi10':
             ax.set_title('Band Senario '+str(sys.argv[3])+'; SNR$_{g+i}\geq 10$')
         elif snr=='griz10':

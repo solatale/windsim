@@ -20,12 +20,12 @@ fi
 #         rm "csscat_merge.txt"
 # fi
 N_Lephare=6
-datetag="20200807"
+datetag="20200906"
 #datetag=`date +%Y%m%d`
 datetagmd=`date +%m%d`
-export LEPHAREWORK='/work/CSSOS/lephare_dev/sim2pht-Z_allin1'
+export LEPHAREWORK='/work/CSSOS/lephare_dev/sim2phtz_allin1_ext'
 export baseworkdir='/work/CSSOS/filter_improve/fromimg/windextract'
-export resultdir=$baseworkdir'/result0807'
+export resultdir=$baseworkdir'/result0906'
 echo "LePhare Work in "$LEPHAREWORK
 
 tiles=''
