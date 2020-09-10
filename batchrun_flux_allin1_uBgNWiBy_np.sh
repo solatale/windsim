@@ -32,7 +32,7 @@ tiles=''
 tsleep=1
 for tile in 039 040 041 042 043 051 052 053 054 055 063 064 065 066 067 075 #076 077 078 079 087 088 089 090 091
     do
-        simcatname="Cssos_FluxSim_SNR_tile_"$tile"_allin1_uBgNWiBy.txt"
+        simcatname="Cssos_FluxSim_SNR_tile_"$tile"_allin1_ext.txt"
         echo 'Tile: '$tile
         # python3 hst814simsed_phutil_mp_flux_allin1_uBgNWiBy.py $tile
         ls $simcatname >> $mergelist
@@ -40,10 +40,11 @@ for tile in 039 040 041 042 043 051 052 053 054 055 063 064 065 066 067 075 #076
         tiles=$tmp$tile
         # sleep $tsleep
     done
-mergedfile="Cssos_FluxSim_SNR_tilemrg_"$tiles"_allin1_uBgNWiBy_"$datetag".txt"
+mergedfile="Cssos_FluxSim_SNR_tilemrg_"$tiles"_allin1_ext_"$datetag".txt"
 echo "Files to be merged:"
 cat $mergelist ; echo ''
 # python3 SimuCataMerge.py $mergelist $mergedfile
+echo $mergedfile
 sleep $tsleep
 
 nparam=$#

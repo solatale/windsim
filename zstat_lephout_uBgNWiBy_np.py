@@ -101,7 +101,12 @@ if __name__ == '__main__':
     senario = str(sys.argv[3])
     snrcri = sys.argv[4:]
 
-    allbands =['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2', 'y', 'y2', 'WU', 'WU2', 'WV', 'WI', 'i4', 'uB', 'gN', 'WIBy', 'zN', 'WVB', 'WIN', 'WINy', 'WUv', 'uB410', 'gN410']
+    # defaults = {'basedir': '/work/CSSOS/filter_improve/fromimg/windextract'}
+    config = configparser.ConfigParser()
+    config.read('/work/CSSOS/filter_improve/fromimg/windextract/cssos_config_uBgNWiBy.ini')
+
+    allbands = config.get('Hst2Css', 'CssBands').split(',')
+    # allbands =['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2', 'y', 'y2', 'WU', 'WU2', 'WV', 'WI', 'i4', 'uB', 'gN', 'WIBy', 'zN', 'WVB', 'WIN', 'WINy', 'WUv', 'uB410', 'gN410']
     snrlists = map(lambda snr, aband:[snr+aband], ['SNR_']*len(allbands), allbands)
 
     header = '# IDENT  Z_BEST  ZSPEC  Z_ML  CONTEXT  ' + ' '.join(list(itertools.chain(*snrlists))) + ' Drms_sec\n'

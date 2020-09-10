@@ -474,7 +474,7 @@ if __name__ == '__main__':
             print('Catalog Length: ',LenCatTile)
 
             # Output catalog for one tile
-            OutCssCatName = 'Cssos_FluxSim_SNR_tile_'+str(sys.argv[1])+'_allin1_uBgNWiBy.txt'
+            OutCssCatName = 'Cssos_FluxSim_SNR_tile_'+str(sys.argv[1])+'_allin1_ext.txt'
             if os.path.isfile(OutCssCatName) is True:
                 os.remove(OutCssCatName)
             OutCssCat = open(OutCssCatName, mode='w')

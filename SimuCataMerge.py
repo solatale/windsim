@@ -64,4 +64,4 @@ for i,afile in enumerate(files):
 
 mergecata.close()
 
-print('\n---> '+sys.argv[2])
+# print('\n---> '+sys.argv[2])

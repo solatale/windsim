@@ -20,9 +20,9 @@ NLe = int(sys.argv[3])
 
 defaults = {'basedir': '/work/CSSOS/filter_improve/fromimg/windextract'}
 config = configparser.ConfigParser(defaults)
-config.read('cssos_config_uBgN.ini')
-# allbands = config.get('Hst2Css', 'CssBands').split(',')
-allbands =['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2', 'y', 'y2', 'WU', 'WU2', 'WV', 'WI', 'i4', 'uB', 'gN', 'WIBy',  'zN', 'WVB', 'WIN', 'WINy','WUv', 'uB410', 'gN410']
+config.read('cssos_config_uBgNWiBy.ini')
+allbands = config.get('Hst2Css', 'CssBands').split(',')
+# allbands =['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2', 'y', 'y2', 'WU', 'WU2', 'WV', 'WI', 'i4', 'uB', 'gN', 'WIBy',  'zN', 'WVB', 'WIN', 'WINy','WUv', 'uB410', 'gN410']
 
 senarioavail = {'424': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'y', 'y2'],
                 '424FNUV2': ['NUV', 'u', 'g', 'r', 'i', 'z', 'y', 'y2'],
@@ -103,7 +103,32 @@ senarioavail = {'424': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'y', 'y2'],
                 '224WUvNUVz4Fi':   ['WUv', 'NUV', 'g', 'r', 'z', 'z2', 'WV', 'WI'],
                 '224WUvNUVz4Fz2':  ['WUv', 'NUV', 'g', 'r', 'i', 'z', 'WV', 'WI'],
                 '224WUvNUVz4FWV':  ['WUv', 'NUV', 'g', 'r', 'i', 'z', 'z2', 'WI'],
-                '224WUvNUVz4FWI':  ['WUv', 'NUV', 'g', 'r', 'i', 'z', 'z2', 'WV']
+                '224WUvNUVz4FWI':  ['WUv', 'NUV', 'g', 'r', 'i', 'z', 'z2', 'WV'],
+                '4424u4z4': ['NUV', 'NUV2', 'u', 'u2', 'g', 'r', 'i', 'z', 'z2'],
+                '4424u4z4FNUV2': ['NUV', 'u', 'u2', 'g', 'r', 'i', 'z', 'z2'],
+                '4424u4z4Fu2': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'z2'],
+                '4424u4z4Fg': ['NUV', 'NUV2', 'u', 'u2', 'r', 'i', 'z', 'z2'],
+                '4424u4z4Fr': ['NUV', 'NUV2', 'u', 'u2', 'g', 'i', 'z', 'z2'],
+                '4424u4z4Fi': ['NUV', 'NUV2', 'u', 'u2', 'g', 'r', 'z', 'z2'],
+                '4424u4z4Fz2': ['NUV', 'NUV2', 'u', 'u2', 'g', 'r', 'i', 'z'],
+                '422WgrWiz': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'Wgr', 'Wiz'],
+                '422WgrWizFNUV2': ['NUV', 'u', 'g', 'r', 'i', 'z', 'Wgr', 'Wiz'],
+                '422WgrWizFu': ['NUV', 'NUV2', 'g', 'r', 'i', 'z', 'Wgr', 'Wiz'],
+                '422WgrWizFg': ['NUV', 'NUV2', 'u', 'r', 'i', 'z', 'Wgr', 'Wiz'],
+                '422WgrWizFr': ['NUV', 'NUV2', 'u', 'g', 'i', 'z', 'Wgr', 'Wiz'],
+                '422WgrWizFi': ['NUV', 'NUV2', 'u', 'g', 'r', 'z', 'Wgr', 'Wiz'],
+                '422WgrWizFz': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'Wgr', 'Wiz'],
+                '422WgrWizFWgr': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'Wiz'],
+                '422WgrWizFWiz': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'Wgr'],
+                '422WUWiz': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'WU', 'Wiz'],
+                '422WUWizFNUV2': ['NUV', 'u', 'g', 'r', 'i', 'z', 'WU', 'Wiz'],
+                '422WUWizFu': ['NUV', 'NUV2', 'g', 'r', 'i', 'z', 'WU', 'Wiz'],
+                '422WUWizFg': ['NUV', 'NUV2', 'u', 'r', 'i', 'z', 'WU', 'Wiz'],
+                '422WUWizFr': ['NUV', 'NUV2', 'u', 'g', 'i', 'z', 'WU', 'Wiz'],
+                '422WUWizFi': ['NUV', 'NUV2', 'u', 'g', 'r', 'z', 'WU', 'Wiz'],
+                '422WUWizFz': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'WU', 'Wiz'],
+                '422WUWizFWU': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'Wiz'],
+                '422WUWizFWiz': ['NUV', 'NUV2', 'u', 'g', 'r', 'i', 'z', 'WU']
                 }
 # NUV and NUV2 both have 2 NUV filters, in together contain 4 ; 
 # y and y2 contain 4 in together, too;
